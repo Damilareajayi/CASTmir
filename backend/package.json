@@ -1,0 +1,16 @@
+{
+  "name": "prism-backend",
+  "version": "1.0.0",
+  "description": "PRISM backend — real FastAPI-shaped endpoints, backed by SQLite, seeded from real OpenAssistant/oasst1 prompts.",
+  "type": "module",
+  "scripts": {
+    "ingest": "node ingest.js",
+    "seed": "node seed.js",
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.1"
+  }
+}
