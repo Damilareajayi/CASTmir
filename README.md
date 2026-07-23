@@ -59,15 +59,21 @@ npm run dev            # http://localhost:5173
 
 ### Enabling COACH (Agent 3)
 
-COACH rewrites prompts using an LLM behind a server-side proxy — the API key
-never reaches the browser. Add your key to `.env`:
+COACH rewrites prompts via AWS Bedrock behind a server-side proxy — nothing
+AWS-related reaches the browser. No API key goes in `.env`; instead, configure
+AWS credentials on this machine once:
 
-```
-ANTHROPIC_API_KEY=sk-ant-your-key-here
+```bash
+aws configure     # or: aws login
 ```
 
-Without a key, the COACH tab still renders and explains what to set up — it
-just won't return a rewrite.
+The account needs Bedrock model access enabled for an Anthropic model in the
+configured Region (defaults to `us-east-1`, model defaults to
+`us.anthropic.claude-haiku-4-5-20251001-v1:0` — override with
+`BEDROCK_MODEL_ID` in `.env` if needed).
+
+Without valid credentials, the COACH tab still renders and explains what to
+set up — it just won't return a rewrite.
 
 ## Scripts
 
@@ -83,7 +89,7 @@ just won't return a rewrite.
 ## Tech stack
 
 React 18 · Vite 5 · Recharts · Express · Node's built-in `node:sqlite` (no
-native build step) · jsPDF for report export.
+native build step) · jsPDF for report export · AWS Bedrock (`@aws-sdk/client-bedrock-runtime`) for COACH.
 
 ## Data honesty
 

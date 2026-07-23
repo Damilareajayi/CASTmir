@@ -3,7 +3,7 @@
  *
  * Agent 1 — Performance Monitor  : session scoring + PMI
  * Agent 2 — Diagnostician        : CUSUM drift detection
- * Agent 3 — COACH                : LLM-powered prompt rewriting via Vite proxy
+ * Agent 3 — COACH                : AWS Bedrock-powered prompt rewriting via Vite proxy
  * Agent 4 — Reporting Engine     : CSV export
  */
 
@@ -120,8 +120,9 @@ export function detectDrift(qualitySeries = [], baseline = null, pmiSeries = [])
 // ═══════════════════════════════════════════════
 
 /**
- * Rewrite a prompt via an LLM through the Vite server proxy.
- * The API key stays in .env — never reaches the browser.
+ * Rewrite a prompt via AWS Bedrock through the Vite server proxy.
+ * AWS credentials are resolved server-side from the local AWS CLI config —
+ * never reach the browser.
  */
 export async function rewritePrompt(originalPrompt, context = {}) {
   const system = `You are COACH, the Recommendation Engine inside PRISM — an AI Performance Intelligence System for universities and institutions.

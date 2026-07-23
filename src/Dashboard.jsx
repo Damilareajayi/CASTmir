@@ -37,7 +37,7 @@ function CoachModal({ college, model, onClose }) {
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
           <div>
             <div style={{ fontWeight:800, fontSize:16, color:C.dark }}>🧠 COACH — Prompt Improvement</div>
-            <div style={{ fontSize:11, color:C.gray, marginTop:2 }}>Powered by a large language model</div>
+            <div style={{ fontSize:11, color:C.gray, marginTop:2 }}>Powered by AWS Bedrock</div>
           </div>
           <button onClick={onClose} style={{ border:'none', background:'none', cursor:'pointer', fontSize:22, color:C.gray }}>×</button>
         </div>
@@ -59,9 +59,9 @@ function CoachModal({ college, model, onClose }) {
         {err && (
           <div style={{ background:C.redL, border:`1px solid ${C.red}30`, borderRadius:8, padding:'12px 14px', color:C.red, fontSize:12, marginBottom:16 }}>
             <strong>Error:</strong> {err}
-            {err.includes('API key') && (
+            {err.includes('credentials') && (
               <div style={{ marginTop:8 }}>
-                Add <code style={{ background:'rgba(0,0,0,0.07)', padding:'1px 5px', borderRadius:3 }}>ANTHROPIC_API_KEY=sk-ant-...</code> to your <code>.env</code> file and restart Vite.
+                Run <code style={{ background:'rgba(0,0,0,0.07)', padding:'1px 5px', borderRadius:3 }}>aws configure</code> or <code style={{ background:'rgba(0,0,0,0.07)', padding:'1px 5px', borderRadius:3 }}>aws login</code> on this machine, then restart Vite.
               </div>
             )}
           </div>
@@ -461,9 +461,9 @@ export default function Dashboard({ onBack }) {
 
           {/* ═══ COACH ═══ */}
           {tab==='COACH' && (
-            <Card title='🧠 COACH — Recommendation Engine (Agent 3)' sub='Powered by a large language model (local) or AWS Bedrock (production)'>
+            <Card title='🧠 COACH — Recommendation Engine (Agent 3)' sub='Powered by AWS Bedrock'>
               <div style={{ background:C.amberL, border:`1px solid ${C.gold}50`, borderRadius:8, padding:'12px 16px', fontSize:12, color:C.amber, marginBottom:20 }}>
-                <strong>Setup:</strong> Add <code style={{background:'rgba(0,0,0,0.08)',padding:'1px 5px',borderRadius:4}}>ANTHROPIC_API_KEY=sk-ant-...</code> to your <code>.env</code> file. The key stays server-side and never reaches the browser.
+                <strong>Setup:</strong> Requires AWS credentials on this machine (run <code style={{background:'rgba(0,0,0,0.08)',padding:'1px 5px',borderRadius:4}}>aws configure</code> or <code style={{background:'rgba(0,0,0,0.08)',padding:'1px 5px',borderRadius:4}}>aws login</code>) with access to Bedrock model invocation. No API key goes in <code>.env</code> — credentials never reach the browser.
               </div>
               <button onClick={()=>setCoach(true)} style={{ background:C.garnet, color:'#fff', border:'none', borderRadius:9, padding:'11px 26px', fontSize:14, fontWeight:700, cursor:'pointer', marginBottom:28 }}>
                 Open Prompt Rewriter →

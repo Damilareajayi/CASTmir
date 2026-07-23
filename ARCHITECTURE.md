@@ -42,12 +42,17 @@ Reporting Engine) is the product's whole framing — see `AGENT_DEFS` in
 for the actual math behind Agents 1, 2, and 4. Agent 3 (COACH) is the only one that
 calls a real LLM.
 
-### COACH (Agent 3) and the API key
+### COACH (Agent 3) and AWS Bedrock
 
-`vite.config.js` adds a dev-server middleware at `/api/coach` that proxies to
-an LLM provider's Messages API using an API key from `.env` — the key never
-reaches the browser. Without a key, the COACH tab shows a clear setup error instead
-of failing silently.
+`vite.config.js` adds a dev-server middleware at `/api/coach` that calls AWS
+Bedrock's Converse API (`@aws-sdk/client-bedrock-runtime`) using whatever AWS
+credentials are resolvable on the machine running the dev server (the SDK's
+default credential chain — `aws configure`, `aws login`, an instance role,
+etc.). No API key lives in `.env`; nothing AWS-related reaches the browser.
+The model defaults to `us.anthropic.claude-haiku-4-5-20251001-v1:0` and is
+overridable via `BEDROCK_MODEL_ID`. Without valid credentials or Bedrock
+model access, the COACH tab shows a clear setup error instead of failing
+silently.
 
 ## Backend — `backend/`
 
@@ -99,12 +104,15 @@ page.
 
 ## Known gaps / next steps
 
-- No git history yet — this file exists precisely because there's no commit log to
-  point to instead.
 - Backend has no auth — fine for local dev, not for a real deployment.
 - `avg_pmi` is nearly identical across all models in the seeded data, because
   session prompts are drawn from the same real-prompt pool regardless of assigned
   model — a known artifact of the synthetic-metadata approach, not a bug.
-- Production architecture (BigQuery, AWS Bedrock Agents, Cloud Run) described in
-  the landing page's Agent cards is aspirational — the current backend is a local
-  stand-in with the same API shape, not the real cloud pipeline.
+- COACH (Agent 3) genuinely calls AWS Bedrock now. The rest of the landing page's
+  production architecture claims (BigQuery, Bedrock Agents, Cloud Run for Agents
+  1/2/4) are still aspirational — the current backend is a local stand-in with the
+  same API shape, not the real cloud pipeline.
+- The Bedrock call currently runs from the Vite dev-server process using
+  developer-local AWS credentials. A real deployment would move this to a proper
+  backend route (e.g. `backend/server.js`) running under an IAM role instead of
+  a developer's CLI session.
