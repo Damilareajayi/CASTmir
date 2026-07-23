@@ -4,51 +4,87 @@
  */
 import { useState, useEffect } from 'react'
 import { C, AGENT_DEFS, FSU_COLLEGES } from './constants.js'
-import { PrismBar, Counter, useVisible } from './UI.jsx'
+import { PrismBar, Counter, useVisible, useIsMobile } from './UI.jsx'
 
 // ── Sticky nav ────────────────────────────────────────────────────
 function Nav({ onEnter }) {
   const [scrolled, setScrolled] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const isMobile = useIsMobile()
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 40)
     window.addEventListener('scroll', fn)
     return () => window.removeEventListener('scroll', fn)
   }, [])
+  useEffect(() => { setMenuOpen(false) }, [isMobile])
 
-  const fg      = scrolled ? '#fff' : C.dark
-  const fgSub   = scrolled ? C.gold : C.garnet
-  const linkFg  = scrolled ? 'rgba(255,255,255,0.8)' : C.gray
-  const hoverBg = scrolled ? 'rgba(255,255,255,0.12)' : 'rgba(120,47,64,0.08)'
+  const solid    = scrolled || menuOpen
+  const fg       = solid ? '#fff' : C.dark
+  const fgSub    = solid ? C.gold : C.garnet
+  const linkFg   = solid ? 'rgba(255,255,255,0.8)' : C.gray
+  const hoverBg  = solid ? 'rgba(255,255,255,0.12)' : 'rgba(120,47,64,0.08)'
+  const links    = ['Features','Research','Use Cases','About']
 
   return (
     <nav style={{
       position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
-      background: scrolled ? 'rgba(120,47,64,0.97)' : 'transparent',
-      backdropFilter: scrolled ? 'blur(12px)' : 'none',
-      transition: 'all 0.3s', padding: '0 5%',
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 64,
-      borderBottom: scrolled ? '1px solid rgba(255,255,255,0.1)' : 'none',
+      background: solid ? 'rgba(120,47,64,0.97)' : 'transparent',
+      backdropFilter: solid ? 'blur(12px)' : 'none',
+      transition: 'background 0.3s', padding: '0 5%',
+      borderBottom: solid ? '1px solid rgba(255,255,255,0.1)' : 'none',
     }}>
-      <div onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
-        <img src='/mascot-head.png' alt='PRISM mascot' style={{ width: 38, height: 38, objectFit: 'contain' }} />
-        <div>
-          <div style={{ color: fg, fontWeight: 800, fontSize: 20, letterSpacing: 3, transition:'color 0.3s' }}>PRISM</div>
-          <div style={{ color: fgSub, fontSize: 8, letterSpacing: 1, marginTop: -3, transition:'color 0.3s' }}>AI PERFORMANCE INTELLIGENCE</div>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', height:64 }}>
+        <div onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); setMenuOpen(false) }} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+          <img src='/mascot-head.png' alt='PRISM mascot' style={{ width: 38, height: 38, objectFit: 'contain' }} />
+          <div>
+            <div style={{ color: fg, fontWeight: 800, fontSize: 20, letterSpacing: 3, transition:'color 0.3s' }}>PRISM</div>
+            <div style={{ color: fgSub, fontSize: 8, letterSpacing: 1, marginTop: -3, transition:'color 0.3s' }}>AI PERFORMANCE INTELLIGENCE</div>
+          </div>
         </div>
+
+        {isMobile ? (
+          <button aria-label='Menu' onClick={() => setMenuOpen(o => !o)}
+            style={{ background:'transparent', border:'none', cursor:'pointer', padding:8, display:'flex', flexDirection:'column', gap:4 }}>
+            {[0,1,2].map(i => (
+              <span key={i} style={{
+                width:22, height:2, background:fg, borderRadius:2, transition:'all 0.25s',
+                transform: menuOpen ? (i===0?'translateY(6px) rotate(45deg)':i===2?'translateY(-6px) rotate(-45deg)':'scaleX(0)') : 'none',
+              }} />
+            ))}
+          </button>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            {links.map(l => (
+              <a key={l} href={`#${l.toLowerCase().replace(' ','-')}`}
+                style={{ color:linkFg, fontSize:13, textDecoration:'none', padding:'6px 12px', borderRadius:6, transition:'background 0.15s, color 0.3s' }}
+                onMouseOver={e => e.target.style.background=hoverBg}
+                onMouseOut={e  => e.target.style.background='transparent'}>
+                {l}
+              </a>
+            ))}
+            <button onClick={onEnter} style={{ background:C.garnet, color:'#fff', border:'none', borderRadius:8, padding:'8px 20px', fontSize:13, fontWeight:700, cursor:'pointer', marginLeft:4 }}>
+              Open Dashboard →
+            </button>
+          </div>
+        )}
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        {['Features','Research','Use Cases','About'].map(l => (
-          <a key={l} href={`#${l.toLowerCase().replace(' ','-')}`}
-            style={{ color:linkFg, fontSize:13, textDecoration:'none', padding:'6px 12px', borderRadius:6, transition:'background 0.15s, color 0.3s' }}
-            onMouseOver={e => e.target.style.background=hoverBg}
-            onMouseOut={e  => e.target.style.background='transparent'}>
-            {l}
-          </a>
-        ))}
-        <button onClick={onEnter} style={{ background:C.garnet, color:'#fff', border:'none', borderRadius:8, padding:'8px 20px', fontSize:13, fontWeight:700, cursor:'pointer', marginLeft:4 }}>
-          Open Dashboard →
-        </button>
-      </div>
+
+      {isMobile && (
+        <div style={{
+          maxHeight: menuOpen ? 320 : 0, overflow:'hidden', transition:'max-height 0.3s ease',
+          display:'flex', flexDirection:'column', gap:2, paddingBottom: menuOpen ? 14 : 0,
+        }}>
+          {links.map(l => (
+            <a key={l} href={`#${l.toLowerCase().replace(' ','-')}`} onClick={() => setMenuOpen(false)}
+              style={{ color:'rgba(255,255,255,0.85)', fontSize:15, textDecoration:'none', padding:'12px 8px', borderRadius:6 }}>
+              {l}
+            </a>
+          ))}
+          <button onClick={() => { setMenuOpen(false); onEnter() }} style={{ background:C.gold, color:C.garnetD, border:'none', borderRadius:8, padding:'12px 20px', fontSize:14, fontWeight:700, cursor:'pointer', marginTop:8 }}>
+            Open Dashboard →
+          </button>
+        </div>
+      )}
     </nav>
   )
 }
@@ -99,6 +135,7 @@ function CircuitBackground() {
 // ── Hero ──────────────────────────────────────────────────────────
 function Hero({ onEnter }) {
   const [idx, setIdx] = useState(0)
+  const isMobile = useIsMobile()
   const lines = [
     'Track AI accuracy degradation before it impacts your institution.',
     "Diagnose whether it's model drift, prompt drift, or context drift.",
@@ -115,7 +152,8 @@ function Hero({ onEnter }) {
     <section style={{
       minHeight:'100vh',
       background:`linear-gradient(135deg,#FFFFFF 0%,${C.goldL} 55%,${C.light} 100%)`,
-      display:'flex', alignItems:'center', padding:'80px 5% 40px',
+      display:'flex', flexDirection: isMobile ? 'column' : 'row', alignItems:'center',
+      padding: isMobile ? '96px 6% 40px' : '80px 5% 40px', gap: isMobile ? 32 : 0,
       position:'relative', overflow:'hidden',
     }}>
       <div style={{ position:'absolute', inset:0, pointerEvents:'none',
@@ -140,8 +178,8 @@ function Hero({ onEnter }) {
       })}
 
       {/* Copy */}
-      <div style={{ flex:1, maxWidth:600, position:'relative', zIndex:2 }}>
-        <h1 style={{ fontSize:'clamp(34px,5vw,58px)', fontWeight:800, color:C.dark, lineHeight:1.15, marginBottom:20, marginTop:0, letterSpacing:-1 }}>
+      <div style={{ flex:1, maxWidth: isMobile ? '100%' : 600, textAlign: isMobile ? 'center' : 'left', position:'relative', zIndex:2 }}>
+        <h1 style={{ fontSize:'clamp(30px,5vw,58px)', fontWeight:800, color:C.dark, lineHeight:1.15, marginBottom:20, marginTop:0, letterSpacing:-1 }}>
           AI performance<br />
           doesn't{' '}
           <span key={idx} style={{ display:'inline-block', color:C.teal, animation:'fadeUp 0.5s ease' }}>{words[idx]}</span><br />
@@ -151,7 +189,7 @@ function Hero({ onEnter }) {
         <div style={{ height:52, position:'relative', overflow:'hidden', marginBottom:24 }}>
           {lines.map((t,i) => (
             <p key={i} style={{
-              fontSize:16, color:C.gray, lineHeight:1.6,
+              fontSize: isMobile ? 14 : 16, color:C.gray, lineHeight:1.6,
               position:'absolute', top:0, width:'100%',
               opacity:idx===i?1:0, transform:`translateY(${idx===i?0:16}px)`,
               transition:'all 0.5s ease',
@@ -163,7 +201,7 @@ function Hero({ onEnter }) {
           PRISM monitors every AI interaction across your institution, classifies degradation to its root cause, and autonomously delivers corrections — powered by AWS Bedrock and grounded in Self-Directed Learning research.
         </p>
 
-        <div style={{ display:'flex', gap:12, flexWrap:'wrap' }}>
+        <div style={{ display:'flex', gap:12, flexWrap:'wrap', justifyContent: isMobile ? 'center' : 'flex-start' }}>
           <button onClick={onEnter} style={{ background:C.garnet, color:'#fff', border:'none', borderRadius:10, padding:'14px 32px', fontSize:15, fontWeight:700, cursor:'pointer', boxShadow:'0 8px 24px rgba(120,47,64,0.25)', transition:'all 0.2s' }}
             onMouseOver={e=>{e.target.style.transform='translateY(-2px)';e.target.style.boxShadow='0 12px 32px rgba(120,47,64,0.35)'}}
             onMouseOut={e=>{e.target.style.transform='';e.target.style.boxShadow='0 8px 24px rgba(120,47,64,0.25)'}}>
@@ -174,7 +212,7 @@ function Hero({ onEnter }) {
           </a>
         </div>
 
-        <div style={{ display:'flex', gap:36, marginTop:48 }}>
+        <div style={{ display:'flex', gap: isMobile ? 24 : 36, marginTop:48, justifyContent: isMobile ? 'center' : 'flex-start', flexWrap:'wrap' }}>
           {[['17','FSU colleges in pilot'],['4','autonomous AI agents'],['3','drift types classified']].map(([n,l])=>(
             <div key={l}>
               <div style={{ fontSize:30, fontWeight:800, color:C.garnet }}>{n}</div>
@@ -185,9 +223,9 @@ function Hero({ onEnter }) {
       </div>
 
       {/* Hero mascot */}
-      <div style={{ flex:1, display:'flex', justifyContent:'center', alignItems:'flex-end', position:'relative', zIndex:2 }}>
+      <div style={{ flex:1, display:'flex', justifyContent:'center', alignItems: isMobile ? 'center' : 'flex-end', position:'relative', zIndex:2 }}>
         <img src='/mascot-clean.png' alt='PRISM mascot'
-          style={{ maxWidth:'min(440px,40vw)', width:'100%', objectFit:'contain',
+          style={{ maxWidth: isMobile ? '58vw' : 'min(440px,40vw)', width:'100%', objectFit:'contain',
             filter:'drop-shadow(0 16px 32px rgba(0,0,0,0.15))',
             animation:'float 4s ease-in-out infinite' }} />
       </div>
@@ -290,6 +328,7 @@ function Problem() {
 function Agents() {
   const [active, setActive] = useState(0)
   const [ref,v] = useVisible()
+  const isMobile = useIsMobile()
   const ag = AGENT_DEFS[active]
 
   return (
@@ -309,7 +348,7 @@ function Agents() {
           ))}
         </div>
 
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:28, background:C.bg, borderRadius:20, padding:'32px 28px', border:`2px solid ${ag.color}20`, opacity:v?1:0, transition:'all 0.4s' }}>
+        <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap:28, background:C.bg, borderRadius:20, padding: isMobile ? '26px 20px' : '32px 28px', border:`2px solid ${ag.color}20`, opacity:v?1:0, transition:'all 0.4s' }}>
           <div>
             <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:16 }}>
               <div style={{ width:48, height:48, borderRadius:12, background:`${ag.color}18`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:22 }}>{ag.icon}</div>
@@ -354,6 +393,7 @@ function Agents() {
 function Research() {
   const [ref,v] = useVisible()
   const [tab, setTab] = useState('sdl')
+  const isMobile = useIsMobile()
   const fws = {
     sdl:{
       title:'Self-Directed Learning (SDL)', author:'Garrison, 1997', color:'#0D7377',
@@ -409,7 +449,7 @@ function Research() {
           ))}
         </div>
 
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1.15fr', gap:28, background:'#fff', borderRadius:20, padding:'32px 28px', border:`2px solid ${fw.color}20`, opacity:v?1:0, transition:'all 0.4s' }}>
+        <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1.15fr', gap:28, background:'#fff', borderRadius:20, padding: isMobile ? '26px 20px' : '32px 28px', border:`2px solid ${fw.color}20`, opacity:v?1:0, transition:'all 0.4s' }}>
           <div>
             <div style={{ fontSize:10, color:fw.color, fontWeight:700, letterSpacing:1, marginBottom:6 }}>{fw.author.toUpperCase()}</div>
             <h3 style={{ fontSize:20, fontWeight:800, color:C.dark, marginBottom:14 }}>{fw.title}</h3>
@@ -438,6 +478,7 @@ function Research() {
 function UseCases() {
   const [ref,v] = useVisible()
   const [active, setActive] = useState(0)
+  const isMobile = useIsMobile()
   const cases = [
     { org:'Universities & Colleges', icon:'🎓', color:C.garnet,
       headline:'Monitor AI accuracy across every department',
@@ -474,7 +515,7 @@ function UseCases() {
           ))}
         </div>
 
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:28, background:C.bg, borderRadius:20, padding:'32px 28px', border:`2px solid ${c.color}20`, opacity:v?1:0, transition:'all 0.4s' }}>
+        <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap:28, background:C.bg, borderRadius:20, padding: isMobile ? '26px 20px' : '32px 28px', border:`2px solid ${c.color}20`, opacity:v?1:0, transition:'all 0.4s' }}>
           <div>
             <div style={{ fontSize:28, marginBottom:14 }}>{c.icon}</div>
             <h3 style={{ fontSize:20, fontWeight:800, color:C.dark, marginBottom:16 }}>{c.headline}</h3>
@@ -497,9 +538,10 @@ function UseCases() {
 // ── About FSU + RECAST ────────────────────────────────────────────
 function About() {
   const [ref,v] = useVisible()
+  const isMobile = useIsMobile()
   return (
     <section id='about' ref={ref} style={{ padding:'80px 5%', background:C.bg }}>
-      <div style={{ maxWidth:1100, margin:'0 auto', display:'grid', gridTemplateColumns:'1fr 1fr', gap:48, alignItems:'center', opacity:v?1:0, transition:'all 0.6s' }}>
+      <div style={{ maxWidth:1100, margin:'0 auto', display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? 32 : 48, alignItems:'center', opacity:v?1:0, transition:'all 0.6s' }}>
         <div>
           <div style={{ color:C.garnet, fontWeight:700, fontSize:11, letterSpacing:2, textTransform:'uppercase', marginBottom:16 }}>About the project</div>
           <h2 style={{ fontSize:'clamp(22px,3vw,34px)', fontWeight:800, color:C.dark, lineHeight:1.2, marginBottom:18 }}>
@@ -560,10 +602,11 @@ function CTA({ onEnter }) {
 
 // ── Footer ────────────────────────────────────────────────────────
 function Footer() {
+  const isMobile = useIsMobile()
   return (
     <footer style={{ background:C.dark, padding:'40px 5% 24px' }}>
       <div style={{ maxWidth:1100, margin:'0 auto' }}>
-        <div style={{ display:'flex', justifyContent:'space-between', gap:32, flexWrap:'wrap', marginBottom:32 }}>
+        <div style={{ display:'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent:'space-between', gap:32, marginBottom:32 }}>
           <div>
             <div onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} style={{ display:'flex', alignItems:'center', gap:10, marginBottom:12, cursor:'pointer', width:'fit-content' }}>
               <img src='/mascot-head.png' alt='PRISM' style={{ width:32, objectFit:'contain' }} />
@@ -576,7 +619,7 @@ function Footer() {
               Context-Aware AI Performance Intelligence. RECAST Lab, FSU Innovation Hub. ReliaQuest 2026.
             </p>
           </div>
-          <div style={{ display:'flex', gap:48, flexWrap:'wrap' }}>
+          <div style={{ display:'flex', gap: isMobile ? 28 : 48, flexWrap:'wrap' }}>
             {[
               { h:'Project', links:['Dashboard','Documentation','GitHub'] },
               { h:'Research', links:['RECAST Lab','SDL Framework','Publications'] },

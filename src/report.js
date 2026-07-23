@@ -4,7 +4,9 @@
  * or detailed — and exports it as PDF, Markdown, or plain text.
  */
 import { jsPDF } from 'jspdf'
-import { FSU_COLLEGES } from './constants.js'
+import { C, FSU_COLLEGES } from './constants.js'
+
+const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
 const fmtPct  = v => `${v > 0 ? '+' : ''}${(+v).toFixed(1)}%`
 const fmtNum  = v => (+v || 0).toLocaleString()
@@ -213,4 +215,222 @@ export function downloadReportPDF(report, filename = 'prism-report.pdf') {
   }
 
   doc.save(filename)
+}
+
+// ── Export: Slides (PowerPoint, native charts) ──────────────────────
+export async function downloadReportSlides(report, data, filename = 'prism-report.pptx') {
+  const { default: PptxGenJS } = await import('pptxgenjs')
+  const pptx = new PptxGenJS()
+  pptx.defineLayout({ name: 'PRISM', width: 10, height: 5.63 })
+  pptx.layout = 'PRISM'
+
+  const hex = c => c.replace('#', '')
+  const GARNET = hex(C.garnet), GOLD = hex(C.gold), DARK = hex(C.dark), GRAY = hex(C.gray)
+  const PALETTE = [C.garnet, C.teal, C.navy, C.amber, C.purple, C.green, C.garnetL, C.gray].map(hex)
+
+  const footer = (slide, label) => {
+    slide.addText('PRISM · AI Performance Intelligence', { x: 0.4, y: 5.3, w: 6, h: 0.25, fontSize: 8, color: GRAY })
+    slide.addText(label || '', { x: 6.4, y: 5.3, w: 3.2, h: 0.25, fontSize: 8, color: GRAY, align: 'right' })
+  }
+  const chartTitle = (slide, text) => {
+    slide.addText(text, { x: 0.5, y: 0.35, w: 9, h: 0.6, fontSize: 24, bold: true, color: GARNET })
+  }
+
+  // Title slide
+  let slide = pptx.addSlide()
+  slide.background = { color: GARNET }
+  slide.addText('PRISM', { x: 0.6, y: 1.7, w: 8.8, h: 1, fontSize: 48, bold: true, color: 'FFFFFF' })
+  slide.addText(report.title, { x: 0.6, y: 2.65, w: 8.8, h: 0.6, fontSize: 22, bold: true, color: GOLD })
+  slide.addText(report.subtitle, { x: 0.6, y: 3.2, w: 8.8, h: 0.5, fontSize: 13, color: 'F0E4D0' })
+  slide.addText('RECAST Team · FSU Innovation Hub', { x: 0.6, y: 4.9, w: 8.8, h: 0.3, fontSize: 10, color: 'D8B9C4' })
+
+  // One slide per narrative section
+  for (const sec of report.sections) {
+    slide = pptx.addSlide()
+    chartTitle(slide, sec.heading)
+
+    const runs = []
+    for (const p of sec.paragraphs || []) {
+      runs.push({ text: p, options: { fontSize: 13, color: DARK, breakLine: true, paraSpaceAfter: 12 } })
+    }
+    for (const b of sec.bullets || []) {
+      runs.push({ text: b, options: { fontSize: 12, color: '404040', breakLine: true, bullet: { code: '2022' }, indentLevel: 1, paraSpaceAfter: 8 } })
+    }
+    if (runs.length) slide.addText(runs, { x: 0.5, y: 1.1, w: 9, h: 4.0, valign: 'top', fontFace: 'Arial' })
+    footer(slide, sec.heading)
+  }
+
+  // Chart: model accuracy comparison
+  const models = [...(data.models || [])].sort((a, b) => b.accuracy - a.accuracy)
+  if (models.length) {
+    slide = pptx.addSlide()
+    chartTitle(slide, 'Model Accuracy Comparison')
+    slide.addChart(pptx.ChartType.bar, [{
+      name: 'Accuracy %', labels: models.map(m => m.model), values: models.map(m => m.accuracy),
+    }], {
+      x: 0.5, y: 1.1, w: 9, h: 4.0, chartColors: PALETTE, showLegend: false,
+      showValue: true, dataLabelColor: DARK, dataLabelFontSize: 9,
+      catAxisLabelColor: GRAY, valAxisLabelColor: GRAY, catAxisLabelFontSize: 10, valAxisLabelFontSize: 9,
+      valAxisMinVal: 0, valAxisMaxVal: 100,
+    })
+    footer(slide, 'Model Performance')
+  }
+
+  // Chart: accuracy trend over time
+  if (data.trends?.length) {
+    const modelNames = Object.keys(data.trends[0]).filter(k => k !== 'date')
+    slide = pptx.addSlide()
+    chartTitle(slide, 'Accuracy Trend Over Time')
+    slide.addChart(pptx.ChartType.line, modelNames.map(m => ({
+      name: m, labels: data.trends.map(t => t.date), values: data.trends.map(t => t[m]),
+    })), {
+      x: 0.5, y: 1.1, w: 9, h: 4.0, chartColors: PALETTE, showLegend: true, legendPos: 'b',
+      legendColor: GRAY, legendFontSize: 9, lineDataSymbol: 'none', lineSize: 2,
+      catAxisLabelColor: GRAY, valAxisLabelColor: GRAY, catAxisLabelFontSize: 7, valAxisLabelFontSize: 9,
+      catAxisLabelRotate: 45,
+    })
+    footer(slide, 'Overall Performance')
+  }
+
+  // Chart: drift type distribution
+  if (data.driftDist?.length) {
+    slide = pptx.addSlide()
+    chartTitle(slide, 'Drift Type Distribution')
+    slide.addChart(pptx.ChartType.pie, [{
+      name: 'Drift events', labels: data.driftDist.map(d => d.drift_type), values: data.driftDist.map(d => d.count),
+    }], {
+      x: 2, y: 1.1, w: 6, h: 4.0, chartColors: PALETTE, showLegend: true, legendPos: 'b',
+      legendColor: GRAY, legendFontSize: 10, showValue: true, dataLabelColor: 'FFFFFF', dataLabelFontSize: 10,
+    })
+    footer(slide, 'Drift & Degradation Analysis')
+  }
+
+  // Chart: PMI distribution
+  if (data.pmiDist?.length) {
+    slide = pptx.addSlide()
+    chartTitle(slide, 'Prompt Maturity Index Distribution')
+    slide.addChart(pptx.ChartType.bar, [{
+      name: 'Sessions', labels: data.pmiDist.map(p => `PMI ${p.pmi_score}`), values: data.pmiDist.map(p => p.count),
+    }], {
+      x: 0.5, y: 1.1, w: 9, h: 4.0, chartColors: [GOLD], showLegend: false,
+      showValue: true, dataLabelColor: DARK, dataLabelFontSize: 9,
+      catAxisLabelColor: GRAY, valAxisLabelColor: GRAY, catAxisLabelFontSize: 10, valAxisLabelFontSize: 9,
+    })
+    footer(slide, 'Prompt Quality & Learning Signal')
+  }
+
+  // Chart: college performance (top 10)
+  if (data.colleges?.length) {
+    const top = [...data.colleges].sort((a, b) => b.accuracy - a.accuracy).slice(0, 10)
+    slide = pptx.addSlide()
+    chartTitle(slide, 'College Performance (Top 10)')
+    slide.addChart(pptx.ChartType.bar, [{
+      name: 'Accuracy %', labels: top.map(c => c.abbr || c.college), values: top.map(c => c.accuracy),
+    }], {
+      x: 0.5, y: 1.1, w: 9, h: 4.0, chartColors: PALETTE, showLegend: false,
+      showValue: true, dataLabelColor: DARK, dataLabelFontSize: 9,
+      catAxisLabelColor: GRAY, valAxisLabelColor: GRAY, catAxisLabelFontSize: 9, valAxisLabelFontSize: 9,
+      valAxisMinVal: 0, valAxisMaxVal: 100,
+    })
+    footer(slide, 'College Performance')
+  }
+
+  await pptx.writeFile({ fileName: filename })
+}
+
+// ── Export: standalone HTML (with lightweight inline SVG charts) ────
+function svgBarChart(items, { width = 560, height = 220, colors = [C.garnet], max = 100, valueFmt = v => `${v}%` } = {}) {
+  const gap = width / items.length
+  const barW = Math.min(48, gap * 0.6)
+  const bars = items.map((it, i) => {
+    const h = Math.max(2, (it.value / max) * (height - 40))
+    const x = i * gap + (gap - barW) / 2
+    const y = height - 30 - h
+    const color = colors[i % colors.length]
+    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}" rx="3" fill="${color}" />
+      <text x="${(x + barW / 2).toFixed(1)}" y="${height - 14}" font-size="10" fill="#555" text-anchor="middle">${esc(it.label)}</text>
+      <text x="${(x + barW / 2).toFixed(1)}" y="${(y - 6).toFixed(1)}" font-size="10" fill="#1C1C1C" text-anchor="middle" font-weight="700">${valueFmt(it.value)}</text>`
+  }).join('')
+  return `<svg viewBox="0 0 ${width} ${height}" style="width:100%;height:auto;max-width:${width}px">${bars}</svg>`
+}
+
+function svgPieChart(items, { size = 200, colors = [C.garnet, C.teal, C.navy, C.amber, C.purple, C.green] } = {}) {
+  const total = items.reduce((s, i) => s + i.value, 0) || 1
+  const r = size / 2 - 8, cx = size / 2, cy = size / 2
+  let angle = -Math.PI / 2
+  const slices = items.map((it, i) => {
+    const frac = it.value / total
+    const a0 = angle, a1 = angle + frac * Math.PI * 2
+    angle = a1
+    const x0 = cx + r * Math.cos(a0), y0 = cy + r * Math.sin(a0)
+    const x1 = cx + r * Math.cos(a1), y1 = cy + r * Math.sin(a1)
+    const large = a1 - a0 > Math.PI ? 1 : 0
+    return `<path d="M${cx},${cy} L${x0.toFixed(1)},${y0.toFixed(1)} A${r},${r} 0 ${large} 1 ${x1.toFixed(1)},${y1.toFixed(1)} Z" fill="${colors[i % colors.length]}" />`
+  }).join('')
+  const legend = items.map((it, i) => `<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#555;margin-bottom:4px">
+      <span style="width:10px;height:10px;border-radius:2px;background:${colors[i % colors.length]};display:inline-block;flex-shrink:0"></span>
+      ${esc(it.label)} — ${Math.round(it.value / total * 100)}%
+    </div>`).join('')
+  return `<div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap">
+      <svg viewBox="0 0 ${size} ${size}" style="width:180px;height:180px;flex-shrink:0">${slices}</svg>
+      <div>${legend}</div>
+    </div>`
+}
+
+export function downloadReportHTML(report, data, filename = 'prism-report.html') {
+  const models = [...(data.models || [])].sort((a, b) => b.accuracy - a.accuracy)
+  const driftDist = data.driftDist || []
+  const modelChart = models.length ? svgBarChart(models.map(m => ({ label: m.model, value: m.accuracy })), { colors: [C.garnet] }) : ''
+  const driftChart = driftDist.length ? svgPieChart(driftDist.map(d => ({ label: d.drift_type, value: d.count }))) : ''
+
+  const sectionsHtml = report.sections.map(sec => `
+    <section>
+      <h2>${esc(sec.heading)}</h2>
+      ${(sec.paragraphs || []).map(p => `<p>${esc(p)}</p>`).join('')}
+      ${(sec.bullets || []).length ? `<ul>${sec.bullets.map(b => `<li>${esc(b)}</li>`).join('')}</ul>` : ''}
+      ${sec.heading === 'Model Performance' && modelChart ? `<div class="chart-block"><h3>Model accuracy</h3>${modelChart}</div>` : ''}
+      ${sec.heading === 'Drift & Degradation Analysis' && driftChart ? `<div class="chart-block"><h3>Drift type distribution</h3>${driftChart}</div>` : ''}
+    </section>`).join('')
+
+  const html = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>${esc(report.title)}</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: system-ui,-apple-system,'Segoe UI',sans-serif; background:#F8F7F5; color:#1C1C1C; margin:0; padding:0; }
+  .wrap { max-width:800px; margin:0 auto; padding:0 24px 80px; }
+  header { background:linear-gradient(135deg,#5A1F2E,#782F40); color:#fff; padding:40px 24px; }
+  header h1 { margin:0 0 6px; font-size:28px; }
+  header .sub { color:#CEB888; font-size:13px; }
+  h2 { color:#782F40; font-size:18px; border-bottom:1px solid #eee; padding-bottom:8px; margin-top:36px; }
+  h3 { font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:#555; margin:20px 0 10px; }
+  p { line-height:1.7; font-size:14px; color:#333; }
+  ul { padding-left:20px; }
+  li { line-height:1.7; font-size:14px; color:#333; margin-bottom:6px; }
+  .chart-block { background:#fff; border:1px solid #eee; border-radius:10px; padding:16px; margin-top:14px; }
+  footer { text-align:center; font-size:11px; color:#888; padding:24px; }
+  @media (prefers-color-scheme: dark) {
+    body { background:#15100f; color:#eee; }
+    .chart-block { background:#221a19; border-color:#3a2c2a; }
+    h2 { border-color:#3a2c2a; }
+    p, li { color:#ddd; }
+  }
+</style>
+</head>
+<body>
+  <header>
+    <h1>${esc(report.title)}</h1>
+    <div class="sub">${esc(report.subtitle)}</div>
+  </header>
+  <div class="wrap">
+    ${sectionsHtml}
+  </div>
+  <footer>PRISM · AI Performance Intelligence · RECAST Team, FSU Innovation Hub</footer>
+</body>
+</html>`
+
+  downloadText(html, filename, 'text/html;charset=utf-8;')
 }

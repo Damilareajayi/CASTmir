@@ -11,8 +11,8 @@ import {
 import { C, MODEL_COLORS, MODELS, AGENT_DEFS, FSU_COLLEGES } from './constants.js'
 import { getDashboardData, getDeptBreakdown }                  from './mockData.js'
 import { rewritePrompt, downloadCSV, downloadJSON }            from './agents.js'
-import { buildReport, reportToMarkdown, downloadText, downloadReportPDF } from './report.js'
-import { PrismBar, KPI, Card, Pill, ChartTip, AccBar, Table, TR, TD } from './UI.jsx'
+import { buildReport, reportToMarkdown, downloadText, downloadReportPDF, downloadReportSlides, downloadReportHTML } from './report.js'
+import { PrismBar, KPI, Card, Pill, ChartTip, AccBar, Table, TR, TD, useIsMobile } from './UI.jsx'
 
 const TABS = ['Overview','Models','Agents','Alerts','COACH','Reports']
 
@@ -22,6 +22,7 @@ function CoachModal({ college, model, onClose }) {
   const [result,  setResult]  = useState(null)
   const [loading, setLoading] = useState(false)
   const [err,     setErr]     = useState(null)
+  const isMobile = useIsMobile()
 
   const run = async () => {
     if (!prompt.trim()) return
@@ -32,8 +33,8 @@ function CoachModal({ college, model, onClose }) {
   }
 
   return (
-    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.55)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:200, padding:16 }}>
-      <div style={{ background:C.card, borderRadius:16, padding:28, maxWidth:640, width:'100%', maxHeight:'85vh', overflowY:'auto' }}>
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.55)', display:'flex', alignItems: isMobile ? 'flex-end' : 'center', justifyContent:'center', zIndex:200, padding: isMobile ? 0 : 16 }}>
+      <div style={{ background:C.card, borderRadius: isMobile ? '16px 16px 0 0' : 16, padding: isMobile ? 18 : 28, maxWidth:640, width:'100%', maxHeight: isMobile ? '92vh' : '85vh', overflowY:'auto' }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
           <div>
             <div style={{ fontWeight:800, fontSize:16, color:C.dark }}>🧠 COACH — Prompt Improvement</div>
@@ -98,6 +99,7 @@ function CoachModal({ college, model, onClose }) {
 
 // ── Dashboard ──────────────────────────────────────────────────────
 export default function Dashboard({ onBack }) {
+  const isMobile = useIsMobile()
   const [tab,       setTab]     = useState('Overview')
   const [college,   setCollege] = useState('all')
   const [dept,      setDept]    = useState('all')
@@ -108,6 +110,7 @@ export default function Dashboard({ onBack }) {
   const [coach,     setCoach]   = useState(false)
   const [tick,      setTick]    = useState(0)
   const [reportMode,setReportMode] = useState('executive')
+  const [slidesBusy,setSlidesBusy] = useState(false)
 
   // Live ticker
   useEffect(() => {
@@ -163,37 +166,46 @@ export default function Dashboard({ onBack }) {
       <PrismBar h={4} onClick={onBack} />
 
       {/* Nav */}
-      <div style={{ background:C.garnet, padding:'0 20px', display:'flex', alignItems:'center', justifyContent:'space-between', height:56, gap:12 }}>
-        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-          {onBack && (
+      <div style={{ background:C.garnet, padding: isMobile ? '10px 14px' : '0 20px', display:'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'stretch' : 'center', justifyContent:'space-between', height: isMobile ? 'auto' : 56, gap: isMobile ? 10 : 12 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:10, justifyContent: isMobile ? 'space-between' : 'flex-start' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+            {onBack && !isMobile && (
+              <button onClick={onBack} style={{ background:'rgba(255,255,255,0.1)', border:'1px solid rgba(255,255,255,0.2)', borderRadius:6, padding:'4px 10px', color:'rgba(255,255,255,0.75)', fontSize:12, cursor:'pointer' }}>
+                ← Home
+              </button>
+            )}
+            <div onClick={onBack} style={{ display:'flex', alignItems:'center', gap:10, cursor: onBack ? 'pointer' : 'default' }}>
+              <img src='/mascot-head.png' alt='PRISM' style={{ width:32, height:32, objectFit:'contain' }} />
+              <div>
+                <div style={{ color:'#fff', fontWeight:700, fontSize:17, letterSpacing:3 }}>PRISM</div>
+                <div style={{ color:C.gold, fontSize:8, letterSpacing:1, marginTop:-2 }}>AI PERFORMANCE INTELLIGENCE</div>
+              </div>
+            </div>
+            {!isMobile && (
+              <div style={{ fontSize:10, color:'rgba(255,255,255,0.55)', paddingLeft:12, borderLeft:'1px solid rgba(255,255,255,0.2)' }}>
+                RECAST Team · FSU Innovation Hub
+              </div>
+            )}
+          </div>
+          {onBack && isMobile && (
             <button onClick={onBack} style={{ background:'rgba(255,255,255,0.1)', border:'1px solid rgba(255,255,255,0.2)', borderRadius:6, padding:'4px 10px', color:'rgba(255,255,255,0.75)', fontSize:12, cursor:'pointer' }}>
               ← Home
             </button>
           )}
-          <div onClick={onBack} style={{ display:'flex', alignItems:'center', gap:10, cursor: onBack ? 'pointer' : 'default' }}>
-            <img src='/mascot-head.png' alt='PRISM' style={{ width:32, height:32, objectFit:'contain' }} />
-            <div>
-              <div style={{ color:'#fff', fontWeight:700, fontSize:17, letterSpacing:3 }}>PRISM</div>
-              <div style={{ color:C.gold, fontSize:8, letterSpacing:1, marginTop:-2 }}>AI PERFORMANCE INTELLIGENCE</div>
-            </div>
-          </div>
-          <div style={{ fontSize:10, color:'rgba(255,255,255,0.55)', paddingLeft:12, borderLeft:'1px solid rgba(255,255,255,0.2)' }}>
-            RECAST Team · FSU Innovation Hub
-          </div>
         </div>
-        <div style={{ display:'flex', gap:2 }}>
+        <div style={{ display:'flex', gap:2, overflowX: isMobile ? 'auto' : 'visible', WebkitOverflowScrolling:'touch', paddingBottom: isMobile ? 2 : 0 }}>
           {TABS.map(t=>(
-            <button key={t} onClick={()=>setTab(t)} style={{ padding:'5px 12px', borderRadius:6, border:'none', cursor:'pointer', fontSize:12, background:tab===t?'rgba(255,255,255,0.16)':'transparent', color:tab===t?'#fff':'rgba(255,255,255,0.62)', fontWeight:tab===t?600:400 }}>{t}</button>
+            <button key={t} onClick={()=>setTab(t)} style={{ padding:'5px 12px', borderRadius:6, border:'none', cursor:'pointer', fontSize:12, whiteSpace:'nowrap', flexShrink:0, background:tab===t?'rgba(255,255,255,0.16)':'transparent', color:tab===t?'#fff':'rgba(255,255,255,0.62)', fontWeight:tab===t?600:400 }}>{t}</button>
           ))}
         </div>
       </div>
 
       {/* Filters */}
-      <div style={{ background:C.card, borderBottom:`0.5px solid ${C.border}`, padding:'8px 20px', display:'flex', alignItems:'center', gap:12, flexWrap:'wrap' }}>
+      <div style={{ background:C.card, borderBottom:`0.5px solid ${C.border}`, padding:'8px 20px', display:'flex', alignItems: isMobile ? 'flex-start' : 'center', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? 8 : 12, flexWrap: isMobile ? 'nowrap' : 'wrap' }}>
         <span style={{ fontSize:10, color:C.gray, fontWeight:600, letterSpacing:0.5 }}>FILTERS</span>
 
         <select value={college} onChange={e=>setCollege(e.target.value)}
-          style={{ fontSize:12, padding:'4px 8px', border:`0.5px solid ${C.border}`, borderRadius:6, background:C.bg, color:C.dark, maxWidth:240 }}>
+          style={{ fontSize:12, padding:'4px 8px', border:`0.5px solid ${C.border}`, borderRadius:6, background:C.bg, color:C.dark, width: isMobile ? '100%' : 'auto', maxWidth: isMobile ? 'none' : 240 }}>
           <option value='all'>All Colleges</option>
           {Object.keys(FSU_COLLEGES).map(c=>(
             <option key={c} value={c}>
@@ -204,7 +216,7 @@ export default function Dashboard({ onBack }) {
 
         {depts.length > 0 && (
           <select value={dept} onChange={e=>setDept(e.target.value)}
-            style={{ fontSize:12, padding:'4px 8px', border:`0.5px solid ${C.border}`, borderRadius:6, background:C.bg, color:C.dark, maxWidth:230 }}>
+            style={{ fontSize:12, padding:'4px 8px', border:`0.5px solid ${C.border}`, borderRadius:6, background:C.bg, color:C.dark, width: isMobile ? '100%' : 'auto', maxWidth: isMobile ? 'none' : 230 }}>
             <option value='all'>All Departments</option>
             {depts.map(d=><option key={d} value={d}>{d}</option>)}
           </select>
@@ -214,13 +226,13 @@ export default function Dashboard({ onBack }) {
         <div style={{ display:'flex', gap:3 }} role='group' aria-label='Time range'>
           {[7,30,90].map(d=>(
             <button key={d} onClick={()=>setDays(d)} title={`Show data from the last ${d} days`}
-              style={{ padding:'3px 9px', borderRadius:5, fontSize:11, cursor:'pointer', border:`0.5px solid ${days===d?C.garnet:C.border}`, background:days===d?C.garnet:C.bg, color:days===d?'#fff':C.gray, fontWeight:days===d?600:400 }}>
+              style={{ flex: isMobile ? 1 : 'none', padding:'3px 9px', borderRadius:5, fontSize:11, cursor:'pointer', border:`0.5px solid ${days===d?C.garnet:C.border}`, background:days===d?C.garnet:C.bg, color:days===d?'#fff':C.gray, fontWeight:days===d?600:400 }}>
               {d} days
             </button>
           ))}
         </div>
 
-        <div style={{ marginLeft:'auto', display:'flex', alignItems:'center', gap:6 }}>
+        <div style={{ marginLeft: isMobile ? 0 : 'auto', display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
           <span style={{ width:6, height:6, borderRadius:'50%', background:C.green, display:'inline-block', animation:'pulse 2s infinite' }} />
           <span style={{ fontSize:10, color:C.green, fontWeight:600 }}>LIVE</span>
           <span style={{ fontSize:10, color:C.muted }}>
@@ -238,7 +250,7 @@ export default function Dashboard({ onBack }) {
       )}
 
       {/* Content */}
-      <div style={{ padding:'18px 20px', maxWidth:1400, margin:'0 auto' }}>
+      <div style={{ padding: isMobile ? '14px 12px' : '18px 20px', maxWidth:1400, margin:'0 auto' }}>
         {loading ? (
           <div style={{ textAlign:'center', padding:'80px 0', color:C.muted }}>
             <div style={{ width:32, height:32, border:`3px solid ${C.border}`, borderTopColor:C.garnet, borderRadius:'50%', animation:'spin 0.8s linear infinite', margin:'0 auto 16px' }} />
@@ -249,7 +261,7 @@ export default function Dashboard({ onBack }) {
           {/* ═══ OVERVIEW ═══ */}
           {tab==='Overview' && (
             <div>
-              <div style={{ display:'flex', gap:10, marginBottom:16 }}>
+              <div style={{ display:'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(5,1fr)', gap:10, marginBottom:16 }}>
                 <KPI label='Overall accuracy'   value={liveAcc?`${liveAcc}%`:'—'} sub='vs last period' trend={data.kpis.accuracy_change} color={C.garnet} />
                 <KPI label='Sessions monitored' value={liveSess} sub={`last ${days} days`} trend={data.kpis.sessions_change} color='#0D7377' />
                 <KPI label='Active alerts'       value={data.alerts?.length??0} sub='from Agent 2' color={C.amber} />
@@ -257,7 +269,7 @@ export default function Dashboard({ onBack }) {
                 <KPI label='Models tracked'      value={data.kpis.models_tracked} sub={`across ${data.kpis.colleges_covered} colleges`} color={C.navy} />
               </div>
 
-              <div style={{ display:'grid', gridTemplateColumns:'1.8fr 1fr', gap:12, marginBottom:12 }}>
+              <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1.8fr 1fr', gap:12, marginBottom:12 }}>
                 <Card title='Model accuracy trends' sub='Output quality score over time across all models'>
                   <ResponsiveContainer width='100%' height={220}>
                     <LineChart data={data.trends} margin={{top:4,right:4,left:-22,bottom:0}}>
@@ -338,7 +350,7 @@ export default function Dashboard({ onBack }) {
           {/* ═══ MODELS ═══ */}
           {tab==='Models' && (
             <div>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:14 }}>
+              <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap:12, marginBottom:14 }}>
                 <Card title='Model accuracy comparison' sub='Average output quality score'>
                   <ResponsiveContainer width='100%' height={240}>
                     <BarChart data={data.models} margin={{top:4,right:4,left:-22,bottom:0}}>
@@ -392,7 +404,7 @@ export default function Dashboard({ onBack }) {
           {/* ═══ AGENTS ═══ */}
           {tab==='Agents' && (
             <div>
-              <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:14 }}>
+              <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(4,1fr)', gap:12, marginBottom:14 }}>
                 {AGENT_DEFS.map((a,i)=>(
                   <div key={i} style={{ background:C.card, border:`0.5px solid ${C.border}`, borderLeft:`4px solid ${a.color}`, borderRadius:12, padding:16 }}>
                     <div style={{ display:'flex', justifyContent:'space-between', marginBottom:10 }}>
@@ -428,7 +440,7 @@ export default function Dashboard({ onBack }) {
           {/* ═══ ALERTS ═══ */}
           {tab==='Alerts' && (
             <div>
-              <div style={{ display:'flex', gap:10, marginBottom:16 }}>
+              <div style={{ display:'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(4,1fr)', gap:10, marginBottom:16 }}>
                 {[
                   {label:'High severity',  value:data.driftEvents?.filter(e=>e.severity==='high').length??0,   color:C.red   },
                   {label:'Medium severity',value:data.driftEvents?.filter(e=>e.severity==='medium').length??0, color:C.amber },
@@ -471,7 +483,7 @@ export default function Dashboard({ onBack }) {
               <button onClick={()=>setCoach(true)} style={{ background:C.garnet, color:'#fff', border:'none', borderRadius:9, padding:'11px 26px', fontSize:14, fontWeight:700, cursor:'pointer', marginBottom:28 }}>
                 Open Prompt Rewriter →
               </button>
-              <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12 }}>
+              <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3,1fr)', gap:12 }}>
                 {[
                   {level:'User level',        icon:'👤', color:'#0D7377', desc:'In-context prompt rewrite sent directly to the individual. Explains changes so users learn over time.'},
                   {level:'Institution level',  icon:'🏛️', color:C.navy,   desc:'Model routing recommendation to administrators when a degrading tool has a better-performing alternative.'},
@@ -491,19 +503,31 @@ export default function Dashboard({ onBack }) {
           {tab==='Reports' && (
             <div>
               <Card title='📄 Performance Report' sub="Plain-English summary of what's happening — no charts to interpret, just what it means" style={{marginBottom:14}}>
-                <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:16, flexWrap:'wrap' }}>
+                <div style={{ display:'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'stretch' : 'center', gap:10, marginBottom:16 }}>
                   <div style={{ display:'flex', gap:3 }} role='group' aria-label='Report detail level'>
                     {[['executive','Executive Summary'],['detailed','Detailed Report']].map(([m,label])=>(
                       <button key={m} onClick={()=>setReportMode(m)}
-                        style={{ padding:'6px 14px', borderRadius:6, fontSize:12, cursor:'pointer', border:`0.5px solid ${reportMode===m?C.garnet:C.border}`, background:reportMode===m?C.garnet:C.bg, color:reportMode===m?'#fff':C.gray, fontWeight:reportMode===m?600:400 }}>
+                        style={{ flex: isMobile ? 1 : 'none', padding:'6px 14px', borderRadius:6, fontSize:12, cursor:'pointer', border:`0.5px solid ${reportMode===m?C.garnet:C.border}`, background:reportMode===m?C.garnet:C.bg, color:reportMode===m?'#fff':C.gray, fontWeight:reportMode===m?600:400 }}>
                         {label}
                       </button>
                     ))}
                   </div>
-                  <div style={{ marginLeft:'auto', display:'flex', gap:8 }}>
+                  <div style={{ marginLeft: isMobile ? 0 : 'auto', display:'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'none', gridAutoFlow: isMobile ? 'row' : 'column', gap:8 }}>
                     <button onClick={()=>downloadReportPDF(report, `prism-${reportMode}-report.pdf`)}
                       style={{ background:C.garnet, color:'#fff', border:'none', borderRadius:7, padding:'8px 16px', fontSize:12, fontWeight:700, cursor:'pointer' }}>
                       ↓ Download PDF
+                    </button>
+                    <button disabled={slidesBusy} onClick={async ()=>{
+                        setSlidesBusy(true)
+                        try { await downloadReportSlides(report, data, `prism-${reportMode}-report.pptx`) }
+                        finally { setSlidesBusy(false) }
+                      }}
+                      style={{ background:C.amber, color:'#fff', border:'none', borderRadius:7, padding:'8px 16px', fontSize:12, fontWeight:700, cursor:slidesBusy?'not-allowed':'pointer', opacity:slidesBusy?0.7:1 }}>
+                      {slidesBusy ? '⟳ Building slides…' : '↓ Download Slides'}
+                    </button>
+                    <button onClick={()=>downloadReportHTML(report, data, `prism-${reportMode}-report.html`)}
+                      style={{ background:C.navy, color:'#fff', border:'none', borderRadius:7, padding:'8px 16px', fontSize:12, fontWeight:700, cursor:'pointer' }}>
+                      ↓ Download HTML
                     </button>
                     <button onClick={()=>downloadText(reportToMarkdown(report), `prism-${reportMode}-report.md`, 'text/markdown;charset=utf-8;')}
                       style={{ background:C.bg, color:C.dark, border:`0.5px solid ${C.border}`, borderRadius:7, padding:'8px 16px', fontSize:12, fontWeight:600, cursor:'pointer' }}>
@@ -545,7 +569,7 @@ export default function Dashboard({ onBack }) {
                     <Bar dataKey='count' name='Sessions' radius={[5,5,0,0]} fill={C.garnet} />
                   </BarChart>
                 </ResponsiveContainer>
-                <div style={{ display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:8, marginTop:14 }}>
+                <div style={{ display:'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(5,1fr)', gap:8, marginTop:14 }}>
                   {data.pmiDist.map((p,i)=>(
                     <div key={i} style={{ background:C.bg, borderRadius:8, padding:'10px', textAlign:'center', border:`0.5px solid ${C.border}` }}>
                       <div style={{ fontSize:15, fontWeight:800, color:C.garnet }}>PMI {p.pmi_score}</div>
@@ -578,7 +602,7 @@ export default function Dashboard({ onBack }) {
       </div>
 
       {/* Footer */}
-      <div style={{ background:C.card, borderTop:`0.5px solid ${C.border}`, padding:'10px 20px', display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:6, marginTop:24 }}>
+      <div style={{ background:C.card, borderTop:`0.5px solid ${C.border}`, padding:'10px 20px', display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:6, marginTop:24, textAlign: isMobile ? 'center' : 'left' }}>
         <div onClick={onBack} style={{ display:'flex', alignItems:'center', gap:8, cursor: onBack ? 'pointer' : 'default' }}>
           <img src='/mascot-head.png' alt='PRISM' style={{ width:22, objectFit:'contain' }} />
           <span style={{ fontSize:12, fontWeight:700, color:C.garnet, letterSpacing:2 }}>PRISM</span>

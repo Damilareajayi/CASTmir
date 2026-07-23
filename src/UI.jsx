@@ -5,6 +5,19 @@
 import { useState, useEffect, useRef } from 'react'
 import { C } from './constants.js'
 
+// ── Mobile breakpoint hook ──────────────────────────────────────────
+export function useIsMobile(breakpoint = 768) {
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== 'undefined' ? window.innerWidth <= breakpoint : false
+  )
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth <= breakpoint)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [breakpoint])
+  return isMobile
+}
+
 // ── Scroll visibility hook ────────────────────────────────────────
 export function useVisible(threshold = 0.12) {
   const ref = useRef(null)
