@@ -115,11 +115,14 @@ export default function Dashboard({ onBack }) {
     return () => clearInterval(t)
   }, [])
 
-  // Load data — real backend if VITE_API_URL set, else mock
+  // Load data — real backend if VITE_API_URL set, else mock.
+  // VITE_API_URL='SAME_ORIGIN' means the frontend is served by the same
+  // server as the API (production deploy) — fetch relative paths.
   const load = useCallback(() => {
     setLoading(true)
-    const apiUrl = import.meta.env.VITE_API_URL
-    if (apiUrl) {
+    const rawApiUrl = import.meta.env.VITE_API_URL
+    const apiUrl = rawApiUrl === 'SAME_ORIGIN' ? '' : rawApiUrl
+    if (rawApiUrl != null) {
       const p  = new URLSearchParams({ days })
       if (college !== 'all') p.set('college', college)
       const eps = ['summary','accuracy/trends','sessions/volume','accuracy/by-college',

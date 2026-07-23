@@ -170,8 +170,11 @@ Respond ONLY with valid JSON (no markdown fences):
   if (data.error) throw new Error(data.error)
 
   const text  = data.content?.[0]?.text || ''
-  const clean = text.replace(/```json|```/g, '').trim()
-  return JSON.parse(clean)
+  const stripped = text.replace(/```json|```/g, '').trim()
+  // Models occasionally add stray prose before/after the JSON despite
+  // instructions — extract just the object so parsing doesn't break.
+  const match = stripped.match(/\{[\s\S]*\}/)
+  return JSON.parse(match ? match[0] : stripped)
 }
 
 

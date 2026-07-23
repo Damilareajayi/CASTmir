@@ -1,5 +1,6 @@
 node_modules/
 dist/
+backend/public/
 .env
 *.local
 
