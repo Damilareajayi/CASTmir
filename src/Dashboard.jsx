@@ -1,5 +1,5 @@
 /**
- * PRISM — Dashboard
+ * CASTMIR — Dashboard
  * All imports are from the same src/ folder.
  * Uses mock data by default. Set VITE_API_URL to connect a real backend.
  */
@@ -12,9 +12,22 @@ import { C, MODEL_COLORS, MODELS, AGENT_DEFS, FSU_COLLEGES } from './constants.j
 import { getDashboardData, getDeptBreakdown }                  from './mockData.js'
 import { rewritePrompt, downloadCSV, downloadJSON }            from './agents.js'
 import { buildReport, reportToMarkdown, downloadText, downloadReportPDF, downloadReportSlides, downloadReportHTML } from './report.js'
-import { PrismBar, KPI, Card, Pill, ChartTip, AccBar, Table, TR, TD, useIsMobile } from './UI.jsx'
+import { CastmirBar, KPI, Card, Pill, ChartTip, AccBar, Table, TR, TD, useIsMobile } from './UI.jsx'
 
 const TABS = ['Overview','Models','Agents','Alerts','COACH','Reports']
+
+// Client-side fallback so the source toggle still renders when the backend
+// (and therefore /api/sources) isn't reachable — mirrors backend/sources/*.js meta.
+const SOURCE_FALLBACK = [
+  { id:'synthetic', label:'Synthetic (oasst1 pilot)', status:'active',
+    capabilities:{ hasGroups:true, groupLabel:'College', groupOptions:Object.keys(FSU_COLLEGES), hasDepartments:true } },
+  { id:'reliaquest', label:'ReliaQuest', status:'preview',
+    capabilities:{ hasGroups:true, groupLabel:'Business Unit',
+      groupOptions:['Security Operations','Threat Intelligence','Managed Detection & Response','IT Infrastructure','Customer Success','Engineering'],
+      hasDepartments:false } },
+  { id:'fsu_its', label:'FSU ITS', status:'pending',
+    capabilities:{ hasGroups:false, groupLabel:null, groupOptions:[], hasDepartments:false } },
+]
 
 // ── COACH modal ────────────────────────────────────────────────────
 function CoachModal({ college, model, onClose }) {
@@ -101,6 +114,8 @@ function CoachModal({ college, model, onClose }) {
 export default function Dashboard({ onBack }) {
   const isMobile = useIsMobile()
   const [tab,       setTab]     = useState('Overview')
+  const [source,    setSource]  = useState(() => localStorage.getItem('castmir_source') || 'synthetic')
+  const [sourcesMeta,setSourcesMeta] = useState(SOURCE_FALLBACK)
   const [college,   setCollege] = useState('all')
   const [dept,      setDept]    = useState('all')
   const [days,      setDays]    = useState(30)
@@ -112,6 +127,27 @@ export default function Dashboard({ onBack }) {
   const [reportMode,setReportMode] = useState('executive')
   const [slidesBusy,setSlidesBusy] = useState(false)
 
+  const rawApiUrl = import.meta.env.VITE_API_URL
+  const apiUrl = rawApiUrl === 'SAME_ORIGIN' ? '' : rawApiUrl
+  const hasBackend = rawApiUrl != null
+
+  const sourceMeta = sourcesMeta.find(s => s.id === source) || SOURCE_FALLBACK[0]
+  const groupCaps  = sourceMeta.capabilities
+  const needsBackend = !hasBackend && source !== 'synthetic' // mock data only knows the synthetic shape
+
+  useEffect(() => { localStorage.setItem('castmir_source', source) }, [source])
+
+  // Discover live source metadata/capabilities from the backend when available;
+  // falls back to SOURCE_FALLBACK above if the backend is unreachable.
+  useEffect(() => {
+    if (!hasBackend) return
+    fetch(`${apiUrl}/api/sources`).then(r => r.json()).then(setSourcesMeta).catch(() => {})
+  }, [hasBackend, apiUrl])
+
+  // Switching source invalidates the previous group/dept selection — the
+  // new source may not have the same (or any) groups.
+  useEffect(() => { setCollege('all'); setDept('all') }, [source])
+
   // Live ticker
   useEffect(() => {
     const t = setInterval(() => setTick(n => n+1), 4000)
@@ -122,11 +158,10 @@ export default function Dashboard({ onBack }) {
   // VITE_API_URL='SAME_ORIGIN' means the frontend is served by the same
   // server as the API (production deploy) — fetch relative paths.
   const load = useCallback(() => {
+    if (needsBackend) { setData(null); setLoading(false); return }
     setLoading(true)
-    const rawApiUrl = import.meta.env.VITE_API_URL
-    const apiUrl = rawApiUrl === 'SAME_ORIGIN' ? '' : rawApiUrl
-    if (rawApiUrl != null) {
-      const p  = new URLSearchParams({ days })
+    if (hasBackend) {
+      const p  = new URLSearchParams({ days, source })
       if (college !== 'all') p.set('college', college)
       const eps = ['summary','accuracy/trends','sessions/volume','accuracy/by-college',
                    'models/comparison','drift/distribution','drift/events','alerts','pmi/distribution']
@@ -134,7 +169,7 @@ export default function Dashboard({ onBack }) {
         .then(([kpis,trends,volume,colleges,models,driftDist,driftEvents,alerts,pmiDist]) =>
           setData({ kpis, trends, volume, colleges, models, driftDist, driftEvents, alerts, pmiDist })
         )
-        .catch(() => setData(getDashboardData({ days, college: college !== 'all' ? college : null })))
+        .catch(() => setData(source === 'synthetic' ? getDashboardData({ days, college: college !== 'all' ? college : null }) : null))
         .finally(() => setLoading(false))
     } else {
       setTimeout(() => {
@@ -142,15 +177,15 @@ export default function Dashboard({ onBack }) {
         setLoading(false)
       }, 160)
     }
-  }, [days, college])
+  }, [days, college, source, hasBackend, apiUrl, needsBackend])
 
   useEffect(() => { load() }, [load])
 
-  // Dept dropdown
+  // Dept dropdown — only the synthetic source has department-level data
   useEffect(() => {
-    if (college !== 'all') { setDepts(FSU_COLLEGES[college]?.depts || []); setDept('all') }
+    if (groupCaps.hasDepartments && college !== 'all') { setDepts(FSU_COLLEGES[college]?.depts || []); setDept('all') }
     else setDepts([])
-  }, [college])
+  }, [college, groupCaps.hasDepartments])
 
   const liveAcc  = data ? +(data.kpis.overall_accuracy + Math.sin(tick*0.5)*0.5).toFixed(1) : null
   const liveSess = data ? (data.kpis.total_sessions + tick*4).toLocaleString() : null
@@ -163,7 +198,7 @@ export default function Dashboard({ onBack }) {
 
   return (
     <div style={{ fontFamily:'system-ui,-apple-system,sans-serif', background:C.bg, minHeight:'100vh' }}>
-      <PrismBar h={4} onClick={onBack} />
+      <CastmirBar h={4} onClick={onBack} />
 
       {/* Nav */}
       <div style={{ background:C.garnet, padding: isMobile ? '10px 14px' : '0 20px', display:'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'stretch' : 'center', justifyContent:'space-between', height: isMobile ? 'auto' : 56, gap: isMobile ? 10 : 12 }}>
@@ -175,9 +210,9 @@ export default function Dashboard({ onBack }) {
               </button>
             )}
             <div onClick={onBack} style={{ display:'flex', alignItems:'center', gap:10, cursor: onBack ? 'pointer' : 'default' }}>
-              <img src='/mascot-head.png' alt='PRISM' style={{ width:32, height:32, objectFit:'contain' }} />
+              <img src='/mascot-head.png' alt='CASTMIR' style={{ width:32, height:32, objectFit:'contain' }} />
               <div>
-                <div style={{ color:'#fff', fontWeight:700, fontSize:17, letterSpacing:3 }}>PRISM</div>
+                <div style={{ color:'#fff', fontWeight:700, fontSize:17, letterSpacing:3 }}>CASTMIR</div>
                 <div style={{ color:C.gold, fontSize:8, letterSpacing:1, marginTop:-2 }}>AI PERFORMANCE INTELLIGENCE</div>
               </div>
             </div>
@@ -200,19 +235,44 @@ export default function Dashboard({ onBack }) {
         </div>
       </div>
 
+      {/* Data source toggle */}
+      <div style={{ background:C.light, borderBottom:`0.5px solid ${C.border}`, padding:'6px 20px', display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+        <span style={{ fontSize:10, color:C.gray, fontWeight:600, letterSpacing:0.5 }}>DATA SOURCE</span>
+        <div style={{ display:'flex', gap:3 }} role='group' aria-label='Data source'>
+          {sourcesMeta.map(s=>(
+            <button key={s.id} onClick={()=>setSource(s.id)} title={s.description||s.label}
+              style={{ display:'flex', alignItems:'center', gap:5, padding:'3px 10px', borderRadius:5, fontSize:11, cursor:'pointer',
+                border:`0.5px solid ${source===s.id?C.garnet:C.border}`, background:source===s.id?C.garnet:C.card,
+                color:source===s.id?'#fff':C.gray, fontWeight:source===s.id?600:400 }}>
+              {s.label}
+              {s.status!=='active' && (
+                <Pill label={s.status} color={source===s.id?'#fff':C.amber} bg={source===s.id?'rgba(255,255,255,0.2)':C.amberL} />
+              )}
+            </button>
+          ))}
+        </div>
+        {sourceMeta.status!=='active' && (
+          <span style={{ fontSize:10, color:C.muted, fontStyle:'italic' }}>{sourceMeta.description}</span>
+        )}
+      </div>
+
       {/* Filters */}
       <div style={{ background:C.card, borderBottom:`0.5px solid ${C.border}`, padding:'8px 20px', display:'flex', alignItems: isMobile ? 'flex-start' : 'center', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? 8 : 12, flexWrap: isMobile ? 'nowrap' : 'wrap' }}>
         <span style={{ fontSize:10, color:C.gray, fontWeight:600, letterSpacing:0.5 }}>FILTERS</span>
 
-        <select value={college} onChange={e=>setCollege(e.target.value)}
-          style={{ fontSize:12, padding:'4px 8px', border:`0.5px solid ${C.border}`, borderRadius:6, background:C.bg, color:C.dark, width: isMobile ? '100%' : 'auto', maxWidth: isMobile ? 'none' : 240 }}>
-          <option value='all'>All Colleges</option>
-          {Object.keys(FSU_COLLEGES).map(c=>(
-            <option key={c} value={c}>
-              {FSU_COLLEGES[c].abbr} — {c.replace('College of ','').replace('Herbert Wertheim ','').replace('Anne Spencer Daves ','').substring(0,36)}
-            </option>
-          ))}
-        </select>
+        {groupCaps.hasGroups && (
+          <select value={college} onChange={e=>setCollege(e.target.value)}
+            style={{ fontSize:12, padding:'4px 8px', border:`0.5px solid ${C.border}`, borderRadius:6, background:C.bg, color:C.dark, width: isMobile ? '100%' : 'auto', maxWidth: isMobile ? 'none' : 240 }}>
+            <option value='all'>All {groupCaps.groupLabel}s</option>
+            {source === 'synthetic'
+              ? Object.keys(FSU_COLLEGES).map(c=>(
+                  <option key={c} value={c}>
+                    {FSU_COLLEGES[c].abbr} — {c.replace('College of ','').replace('Herbert Wertheim ','').replace('Anne Spencer Daves ','').substring(0,36)}
+                  </option>
+                ))
+              : groupCaps.groupOptions.map(g=><option key={g} value={g}>{g}</option>)}
+          </select>
+        )}
 
         {depts.length > 0 && (
           <select value={dept} onChange={e=>setDept(e.target.value)}
@@ -251,10 +311,22 @@ export default function Dashboard({ onBack }) {
 
       {/* Content */}
       <div style={{ padding: isMobile ? '14px 12px' : '18px 20px', maxWidth:1400, margin:'0 auto' }}>
-        {loading ? (
+        {sourceMeta.status === 'pending' ? (
+          <div style={{ textAlign:'center', padding:'80px 20px', color:C.gray, background:C.card, border:`0.5px solid ${C.border}`, borderRadius:12 }}>
+            <div style={{ fontSize:32, marginBottom:12 }}>⏳</div>
+            <div style={{ fontWeight:700, fontSize:15, color:C.dark, marginBottom:6 }}>{sourceMeta.label} isn't wired up yet</div>
+            <div style={{ fontSize:12, maxWidth:420, margin:'0 auto', lineHeight:1.6 }}>{sourceMeta.description}</div>
+          </div>
+        ) : needsBackend ? (
+          <div style={{ textAlign:'center', padding:'80px 20px', color:C.gray, background:C.card, border:`0.5px solid ${C.border}`, borderRadius:12 }}>
+            <div style={{ fontSize:32, marginBottom:12 }}>🔌</div>
+            <div style={{ fontWeight:700, fontSize:15, color:C.dark, marginBottom:6 }}>Backend required for {sourceMeta.label}</div>
+            <div style={{ fontSize:12, maxWidth:420, margin:'0 auto', lineHeight:1.6 }}>This preview only exists in the backend's mock data. Set <code style={{background:'rgba(0,0,0,0.06)',padding:'1px 5px',borderRadius:4}}>VITE_API_URL</code> and start the backend to view it.</div>
+          </div>
+        ) : loading ? (
           <div style={{ textAlign:'center', padding:'80px 0', color:C.muted }}>
             <div style={{ width:32, height:32, border:`3px solid ${C.border}`, borderTopColor:C.garnet, borderRadius:'50%', animation:'spin 0.8s linear infinite', margin:'0 auto 16px' }} />
-            Loading PRISM data...
+            Loading CASTMIR data...
           </div>
         ) : data && <>
 
@@ -513,23 +585,23 @@ export default function Dashboard({ onBack }) {
                     ))}
                   </div>
                   <div style={{ marginLeft: isMobile ? 0 : 'auto', display:'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'none', gridAutoFlow: isMobile ? 'row' : 'column', gap:8 }}>
-                    <button onClick={()=>downloadReportPDF(report, `prism-${reportMode}-report.pdf`)}
+                    <button onClick={()=>downloadReportPDF(report, `castmir-${reportMode}-report.pdf`)}
                       style={{ background:C.garnet, color:'#fff', border:'none', borderRadius:7, padding:'8px 16px', fontSize:12, fontWeight:700, cursor:'pointer' }}>
                       ↓ Download PDF
                     </button>
                     <button disabled={slidesBusy} onClick={async ()=>{
                         setSlidesBusy(true)
-                        try { await downloadReportSlides(report, data, `prism-${reportMode}-report.pptx`) }
+                        try { await downloadReportSlides(report, data, `castmir-${reportMode}-report.pptx`) }
                         finally { setSlidesBusy(false) }
                       }}
                       style={{ background:C.amber, color:'#fff', border:'none', borderRadius:7, padding:'8px 16px', fontSize:12, fontWeight:700, cursor:slidesBusy?'not-allowed':'pointer', opacity:slidesBusy?0.7:1 }}>
                       {slidesBusy ? '⟳ Building slides…' : '↓ Download Slides'}
                     </button>
-                    <button onClick={()=>downloadReportHTML(report, data, `prism-${reportMode}-report.html`)}
+                    <button onClick={()=>downloadReportHTML(report, data, `castmir-${reportMode}-report.html`)}
                       style={{ background:C.navy, color:'#fff', border:'none', borderRadius:7, padding:'8px 16px', fontSize:12, fontWeight:700, cursor:'pointer' }}>
                       ↓ Download HTML
                     </button>
-                    <button onClick={()=>downloadText(reportToMarkdown(report), `prism-${reportMode}-report.md`, 'text/markdown;charset=utf-8;')}
+                    <button onClick={()=>downloadText(reportToMarkdown(report), `castmir-${reportMode}-report.md`, 'text/markdown;charset=utf-8;')}
                       style={{ background:C.bg, color:C.dark, border:`0.5px solid ${C.border}`, borderRadius:7, padding:'8px 16px', fontSize:12, fontWeight:600, cursor:'pointer' }}>
                       ↓ Download Text
                     </button>
@@ -582,9 +654,9 @@ export default function Dashboard({ onBack }) {
               <Card title='Export research data' sub='FERPA-compliant anonymized exports — aggregated at department level'>
                 <div style={{ display:'flex', flexDirection:'column', gap:9 }}>
                   {[
-                    {label:'Session performance report (college level)', fmt:'CSV',  fn:()=>downloadCSV(data.colleges.map(c=>({college:c.college,accuracy:c.accuracy,sessions:c.sessions,alerts:c.active_alerts})),'prism-college-report.csv')},
-                    {label:'Model comparison summary',                    fmt:'CSV',  fn:()=>downloadCSV(data.models,'prism-model-comparison.csv')},
-                    {label:'Drift events log',                            fmt:'JSON', fn:()=>downloadJSON(data.driftEvents,'prism-drift-events.json')},
+                    {label:'Session performance report (college level)', fmt:'CSV',  fn:()=>downloadCSV(data.colleges.map(c=>({college:c.college,accuracy:c.accuracy,sessions:c.sessions,alerts:c.active_alerts})),'castmir-college-report.csv')},
+                    {label:'Model comparison summary',                    fmt:'CSV',  fn:()=>downloadCSV(data.models,'castmir-model-comparison.csv')},
+                    {label:'Drift events log',                            fmt:'JSON', fn:()=>downloadJSON(data.driftEvents,'castmir-drift-events.json')},
                   ].map((e,i)=>(
                     <div key={i} onClick={e.fn} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'11px 14px', borderRadius:9, border:`0.5px solid ${C.border}`, cursor:'pointer', background:C.bg, transition:'background 0.15s' }}
                       onMouseOver={ev=>ev.currentTarget.style.background=C.light}
@@ -604,8 +676,8 @@ export default function Dashboard({ onBack }) {
       {/* Footer */}
       <div style={{ background:C.card, borderTop:`0.5px solid ${C.border}`, padding:'10px 20px', display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:6, marginTop:24, textAlign: isMobile ? 'center' : 'left' }}>
         <div onClick={onBack} style={{ display:'flex', alignItems:'center', gap:8, cursor: onBack ? 'pointer' : 'default' }}>
-          <img src='/mascot-head.png' alt='PRISM' style={{ width:22, objectFit:'contain' }} />
-          <span style={{ fontSize:12, fontWeight:700, color:C.garnet, letterSpacing:2 }}>PRISM</span>
+          <img src='/mascot-head.png' alt='CASTMIR' style={{ width:22, objectFit:'contain' }} />
+          <span style={{ fontSize:12, fontWeight:700, color:C.garnet, letterSpacing:2 }}>CASTMIR</span>
         </div>
         <span style={{ fontSize:10, color:C.muted }}>AI Performance Intelligence · RECAST Team · FSU Innovation Hub · ReliaQuest 2026</span>
         <div style={{ display:'flex', alignItems:'center', gap:5 }}>
@@ -613,7 +685,7 @@ export default function Dashboard({ onBack }) {
           <span style={{ fontSize:10, color:C.green, fontWeight:600 }}>All systems operational</span>
         </div>
       </div>
-      <PrismBar h={4} onClick={onBack} />
+      <CastmirBar h={4} onClick={onBack} />
 
       {coach && <CoachModal college={college!=='all'?college:null} model={data?.models?.[0]?.model} onClose={()=>setCoach(false)} />}
     </div>

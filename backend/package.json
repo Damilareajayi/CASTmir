@@ -1,7 +1,7 @@
 {
-  "name": "prism-backend",
+  "name": "castmir-backend",
   "version": "1.0.0",
-  "description": "PRISM backend — real FastAPI-shaped endpoints, backed by SQLite, seeded from real OpenAssistant/oasst1 prompts.",
+  "description": "CASTMIR backend — real FastAPI-shaped endpoints, backed by SQLite, seeded from real OpenAssistant/oasst1 prompts.",
   "type": "module",
   "scripts": {
     "ingest": "node ingest.js",

@@ -1,7 +1,7 @@
 {
-  "name": "prism-ai-performance-intelligence",
+  "name": "castmir-ai-performance-intelligence",
   "version": "1.0.0",
-  "description": "PRISM — AI Performance Intelligence System. RECAST Team, FSU Innovation Hub.",
+  "description": "CASTMIR — AI Performance Intelligence System. RECAST Team, FSU Innovation Hub.",
   "type": "module",
   "scripts": {
     "dev": "vite",

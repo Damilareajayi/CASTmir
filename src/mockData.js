@@ -1,5 +1,5 @@
 /**
- * PRISM — Mock Data Engine
+ * CASTMIR — Mock Data Engine
  * Simulates LMSYS-Chat-1M analysis. Same data shapes as the real FastAPI backend.
  * Switch to real data: set VITE_API_URL in .env
  */

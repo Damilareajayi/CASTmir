@@ -1,5 +1,5 @@
 /**
- * PRISM backend — ingest real human prompts from OpenAssistant/oasst1
+ * CASTMIR backend — ingest real human prompts from OpenAssistant/oasst1
  * (ungated, public dataset) via HuggingFace's datasets-server REST API.
  * No account or token required — used as realistic stand-in text for
  * LMSYS-Chat-1M until FSU's real data-sharing agreement grants access.
@@ -54,7 +54,7 @@ async function main() {
     if (rows.length < PAGE) break // exhausted dataset
   }
 
-  console.log(`Done. Kept ${kept} real English prompts in backend/data/prism.db (raw_prompts).`)
+  console.log(`Done. Kept ${kept} real English prompts in backend/data/castmir.db (raw_prompts).`)
 }
 
 main().catch(e => { console.error(e); process.exit(1) })

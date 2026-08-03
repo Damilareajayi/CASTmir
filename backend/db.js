@@ -1,12 +1,12 @@
 /**
- * PRISM backend — SQLite storage (Node's built-in node:sqlite, no native build step)
+ * CASTMIR backend — SQLite storage (Node's built-in node:sqlite, no native build step)
  */
 import { DatabaseSync } from 'node:sqlite'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-export const DB_PATH = path.join(__dirname, 'data', 'prism.db')
+export const DB_PATH = path.join(__dirname, 'data', 'castmir.db')
 
 export const db = new DatabaseSync(DB_PATH)
 

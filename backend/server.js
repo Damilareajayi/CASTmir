@@ -1,5 +1,5 @@
 /**
- * PRISM backend — Express server
+ * CASTMIR backend — Express server
  * Serves the same endpoint shapes src/mockData.js produces, but computed
  * from real ingested prompt text + synthetic institutional metadata in SQLite.
  * Also serves the built frontend (public/) and the COACH (Agent 3) Bedrock
@@ -10,10 +10,7 @@ import corsMiddleware from 'cors'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { BedrockRuntimeClient, ConverseCommand } from '@aws-sdk/client-bedrock-runtime'
-import {
-  getSummaryKPIs, getAccuracyTrends, getSessionVolume, getCollegeBreakdown,
-  getModelComparison, getDriftEvents, getDriftDistribution, getPmiDistribution,
-} from './aggregate.js'
+import { resolveSource, listSources } from './sources/index.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const PORT   = process.env.PORT || 8000
@@ -27,55 +24,58 @@ app.use(express.json())
 function parseQuery(req) {
   const days   = Math.max(1, Math.min(90, Number(req.query.days) || 30))
   const college = req.query.college && req.query.college !== 'all' ? req.query.college : null
-  return { days, college }
+  const source = resolveSource(req.query.source)
+  return { days, college, source }
 }
 
+app.get('/api/sources', (_req, res) => res.json(listSources()))
+
 app.get('/api/summary', (req, res) => {
-  const { days, college } = parseQuery(req)
-  res.json(getSummaryKPIs(days, college))
+  const { days, college, source } = parseQuery(req)
+  res.json(source.getSummaryKPIs(days, college))
 })
 
 app.get('/api/accuracy/trends', (req, res) => {
-  const { days, college } = parseQuery(req)
-  res.json(getAccuracyTrends(days, college))
+  const { days, college, source } = parseQuery(req)
+  res.json(source.getAccuracyTrends(days, college))
 })
 
 app.get('/api/sessions/volume', (req, res) => {
-  const { days, college } = parseQuery(req)
-  res.json(getSessionVolume(days, college))
+  const { days, college, source } = parseQuery(req)
+  res.json(source.getSessionVolume(days, college))
 })
 
 app.get('/api/accuracy/by-college', (req, res) => {
-  const { days } = parseQuery(req)
-  res.json(getCollegeBreakdown(days))
+  const { days, source } = parseQuery(req)
+  res.json(source.getGroupBreakdown(days))
 })
 
 app.get('/api/models/comparison', (req, res) => {
-  const { days, college } = parseQuery(req)
-  res.json(getModelComparison(days, college))
+  const { days, college, source } = parseQuery(req)
+  res.json(source.getModelComparison(days, college))
 })
 
 app.get('/api/drift/distribution', (req, res) => {
-  const { days, college } = parseQuery(req)
-  res.json(getDriftDistribution(days, college))
+  const { days, college, source } = parseQuery(req)
+  res.json(source.getDriftDistribution(days, college))
 })
 
 app.get('/api/drift/events', (req, res) => {
-  const { days, college } = parseQuery(req)
-  res.json(getDriftEvents(days, college, req.query.status || 'all'))
+  const { days, college, source } = parseQuery(req)
+  res.json(source.getDriftEvents(days, college, req.query.status || 'all'))
 })
 
 app.get('/api/alerts', (req, res) => {
-  const { days, college } = parseQuery(req)
-  res.json(getDriftEvents(days, college, 'active'))
+  const { days, college, source } = parseQuery(req)
+  res.json(source.getDriftEvents(days, college, 'active'))
 })
 
 app.get('/api/pmi/distribution', (req, res) => {
-  const { days, college } = parseQuery(req)
-  res.json(getPmiDistribution(days, college))
+  const { days, college, source } = parseQuery(req)
+  res.json(source.getPmiDistribution(days, college))
 })
 
-app.get('/api/health', (_req, res) => res.json({ ok: true, source: 'PRISM backend — SQLite + real oasst1 prompts' }))
+app.get('/api/health', (_req, res) => res.json({ ok: true, source: 'CASTMIR backend — SQLite + real oasst1 prompts' }))
 
 // ── COACH (Agent 3) — AWS Bedrock proxy ─────────────────────────────
 // Credentials resolve from the runtime environment (App Runner instance
@@ -108,5 +108,5 @@ app.get(/^(?!\/api\/).*/, (_req, res) => {
 })
 
 app.listen(PORT, () => {
-  console.log(`PRISM listening on http://localhost:${PORT}`)
+  console.log(`CASTMIR listening on http://localhost:${PORT}`)
 })

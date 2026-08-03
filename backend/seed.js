@@ -1,5 +1,5 @@
 /**
- * PRISM backend — seed sessions
+ * CASTMIR backend — seed sessions
  * Combines real prompt text (ingested from OpenAssistant/oasst1) with
  * synthetic institutional metadata (college/department/model/date) to
  * build a 90-day window of session records. Quality + PMI are computed
@@ -68,7 +68,7 @@ function main() {
     if ((i + 1) % 30 === 0) console.log(`  day ${i + 1}/${DAYS} — ${total} sessions so far`)
   }
 
-  console.log(`Done. Seeded ${total} sessions across ${DAYS} days in backend/data/prism.db.`)
+  console.log(`Done. Seeded ${total} sessions across ${DAYS} days in backend/data/castmir.db.`)
 }
 
 main()

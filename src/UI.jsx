@@ -1,6 +1,6 @@
 /**
- * PRISM — Shared UI Components
- * PrismBar · KPI · Card · Pill · Table · ChartTip · AccBar · Counter · useVisible
+ * CASTMIR — Shared UI Components
+ * CastmirBar · KPI · Card · Pill · Table · ChartTip · AccBar · Counter · useVisible
  */
 import { useState, useEffect, useRef } from 'react'
 import { C } from './constants.js'
@@ -50,8 +50,8 @@ export function Counter({ end, suffix = '', duration = 2200, active = false }) {
   return <>{val.toLocaleString()}{suffix}</>
 }
 
-// ── Prismatic gradient bar ────────────────────────────────────────
-export function PrismBar({ h = 4, onClick }) {
+// ── Brand gradient bar ──────────────────────────────────────────────
+export function CastmirBar({ h = 4, onClick }) {
   return (
     <div onClick={onClick} style={{
       height: h, cursor: onClick ? 'pointer' : 'default',

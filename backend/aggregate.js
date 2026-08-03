@@ -1,5 +1,5 @@
 /**
- * PRISM backend — aggregation queries
+ * CASTMIR backend — aggregation queries
  * Turns raw `sessions` rows (real prompt text + synthetic institutional
  * metadata) into the exact JSON shapes src/mockData.js produces, so the
  * frontend renders identically whether it's pointed at mock data or here.

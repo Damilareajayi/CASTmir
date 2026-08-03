@@ -1,6 +1,6 @@
-# PRISM — Architecture
+# CASTMIR — Architecture
 
-PRISM is an AI Performance Intelligence System: it monitors AI tool usage across an
+CASTMIR is an AI Performance Intelligence System: it monitors AI tool usage across an
 institution, detects when quality degrades, classifies *why*, and surfaces both the
 raw data and a plain-English report. It ships as two independent pieces — a React
 frontend and a small Express/SQLite backend — that talk over a plain REST API.
@@ -30,7 +30,7 @@ in-browser, no network) — so the UI always works even with the backend off.
 | `main.jsx`, `Root.jsx` | Entry point + hash-based router (`#dashboard` vs landing). No react-router — just `window.location.hash`. |
 | `Landing.jsx` | Marketing/landing page: hero, stats, RECAST callout, problem statement, four-agent explainer, research framework, use cases, about, CTA, footer. |
 | `Dashboard.jsx` | The actual product: tabbed dashboard (Overview / Models / Agents / Alerts / COACH / Reports), college/department/time-range filters, live-updating ticker. |
-| `UI.jsx` | Shared presentational components (`Card`, `KPI`, `Table`, `Pill`, `PrismBar`, `ChartTip`, `useVisible` scroll-reveal hook, `Counter`). |
+| `UI.jsx` | Shared presentational components (`Card`, `KPI`, `Table`, `Pill`, `CastmirBar`, `ChartTip`, `useVisible` scroll-reveal hook, `Counter`). |
 | `constants.js` | Brand colors, the 8 tracked AI models, all 17 FSU colleges + departments, the 4-agent definitions used on the landing page. |
 | `mockData.js` | Deterministic seeded-random data generator — used when no backend is configured. Same shapes as the real API. |
 | `agents.js` | Client-side implementations of Agent 1 (scoring/PMI), Agent 2 (CUSUM drift detection), Agent 3 (COACH — calls `/api/coach` via the Vite dev-server proxy to an LLM provider), Agent 4 (CSV/JSON export helpers). |
@@ -66,7 +66,7 @@ build step) so it runs on this machine without Python or a C++ toolchain.
 | `scoring.js` | Ported from `src/agents.js` — `computePMI`, `scoreSession`, CUSUM (`runCUSUM`), and three-way drift classification (`detectDrift`). Runs against real text, not canned numbers. |
 | `aggregate.js` | SQL aggregation queries that reshape `sessions` rows into exactly the JSON shapes the frontend expects (summary KPIs, trends, college/model comparisons, drift events/distribution, PMI distribution). |
 | `server.js` | Express routes (`/api/summary`, `/api/accuracy/trends`, `/api/sessions/volume`, `/api/accuracy/by-college`, `/api/models/comparison`, `/api/drift/distribution`, `/api/drift/events`, `/api/alerts`, `/api/pmi/distribution`) with CORS enabled for the Vite dev server. |
-| `db.js` | Opens `backend/data/prism.db` and creates the `raw_prompts` / `sessions` schema if missing. |
+| `db.js` | Opens `backend/data/castmir.db` and creates the `raw_prompts` / `sessions` schema if missing. |
 | `constants.js` | Backend-side copy of the model list + FSU college/department structure (kept in sync with `src/constants.js`). |
 
 **Data honesty note:** accuracy/PMI numbers are *real* computations over *real* human

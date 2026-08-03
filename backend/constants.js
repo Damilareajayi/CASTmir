@@ -1,5 +1,5 @@
 /**
- * PRISM backend — shared constants (mirrors src/constants.js on the frontend)
+ * CASTMIR backend — shared constants (mirrors src/constants.js on the frontend)
  */
 
 export const MODELS = [

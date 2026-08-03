@@ -1,5 +1,5 @@
 /**
- * PRISM — All Four Agents (browser-side JavaScript)
+ * CASTMIR — All Four Agents (browser-side JavaScript)
  *
  * Agent 1 — Performance Monitor  : session scoring + PMI
  * Agent 2 — Diagnostician        : CUSUM drift detection
@@ -125,7 +125,7 @@ export function detectDrift(qualitySeries = [], baseline = null, pmiSeries = [])
  * never reach the browser.
  */
 export async function rewritePrompt(originalPrompt, context = {}) {
-  const system = `You are COACH, the Recommendation Engine inside PRISM — an AI Performance Intelligence System for universities and institutions.
+  const system = `You are COACH, the Recommendation Engine inside CASTMIR — an AI Performance Intelligence System for universities and institutions.
 
 Your job: improve a user's AI prompt so they get better output quality, and explain what you changed so they learn over time.
 
@@ -193,7 +193,7 @@ export function toCSV(rows = []) {
 }
 
 /** Trigger a CSV file download in the browser. */
-export function downloadCSV(data, filename = 'prism-export.csv') {
+export function downloadCSV(data, filename = 'castmir-export.csv') {
   const csv  = Array.isArray(data) ? toCSV(data) : data
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
   const url  = URL.createObjectURL(blob)
@@ -203,7 +203,7 @@ export function downloadCSV(data, filename = 'prism-export.csv') {
 }
 
 /** Trigger a JSON file download in the browser. */
-export function downloadJSON(data, filename = 'prism-export.json') {
+export function downloadJSON(data, filename = 'castmir-export.json') {
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
   const url  = URL.createObjectURL(blob)
   const a    = Object.assign(document.createElement('a'), { href: url, download: filename })

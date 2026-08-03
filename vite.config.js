@@ -11,7 +11,7 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       {
-        name: 'prism-bedrock-proxy',
+        name: 'castmir-bedrock-proxy',
         configureServer(server) {
           server.middlewares.use('/api/coach', (req, res) => {
             if (req.method !== 'POST') { res.statusCode = 405; return res.end() }
