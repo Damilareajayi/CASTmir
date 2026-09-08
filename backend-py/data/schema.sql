@@ -109,8 +109,8 @@ CREATE TABLE IF NOT EXISTS site_configs (
 );
 
 INSERT INTO site_configs (hostname, tool, prompt_input, submit_button, response_container, model_version_selector) VALUES
-    ('chatgpt.com',            'ChatGPT',    '#mobile-composer-prompt',              '[data-testid="send-button"]',   '[data-assistant-markdown]',        NULL),
-    ('chat.openai.com',        'ChatGPT',    '#mobile-composer-prompt',              '[data-testid="send-button"]',   '[data-assistant-markdown]',        NULL),
+    ('chatgpt.com',            'ChatGPT',    '#prompt-textarea',                     '[data-testid="send-button"]',   '[data-assistant-markdown]',        NULL),
+    ('chat.openai.com',        'ChatGPT',    '#prompt-textarea',                     '[data-testid="send-button"]',   '[data-assistant-markdown]',        NULL),
     ('claude.ai',              'Claude',     '[data-testid="chat-input"]',           '[aria-label="Send Message"]',   '.font-claude-response',            NULL),
     ('gemini.google.com',      'Gemini',     'div.ql-editor[contenteditable="true"]', 'button[aria-label="Send message"]', '.markdown-main-panel.md-content', NULL),
     ('copilot.microsoft.com',  'Copilot',    '#userInput',                            '[aria-label="Submit message"]', '[id*="-content-"]',                NULL),

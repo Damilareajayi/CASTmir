@@ -31,14 +31,23 @@
 // how the remote override gets applied.
 const DEFAULT_SITE_CONFIGS = {
   'chatgpt.com': {
-    // Verified against live chatgpt.com DOM on 2026-08-29: composer is a real
-    // <textarea id="mobile-composer-prompt">, not the contenteditable div
-    // "#prompt-textarea" was guessed as. responseContainer uses the stable
-    // data-assistant-markdown attribute instead of the CSS-modules hashed
-    // class name (e.g. "_wdUoQG_assistantMessage"), which will likely change
-    // on ChatGPT's next deploy.
+    // Re-verified against live chatgpt.com DOM on 2026-09-08: ChatGPT
+    // replaced its composer entirely — the real <textarea id=
+    // "mobile-composer-prompt"> confirmed on 2026-08-29 is gone, swapped for
+    // a ProseMirror rich-text editor: <div class="ProseMirror"
+    // id="prompt-textarea">. Ironic given "#prompt-textarea" was the very
+    // first (wrong, at the time) guess before 08-29's verification — it's
+    // now correct again, but for an unrelated reason (a real composer
+    // rewrite, not the original guess having been right all along). This
+    // is exactly the kind of drift the remote site_configs system exists
+    // for — see resolveConfig()'s override logic above; this bundled value
+    // is only the fallback baseline for a fresh install, the live fix
+    // shipped via PUT /api/admin/site-configs/chatgpt.com already reached
+    // every installed extension without a new release.
+    // responseContainer/submitButton not re-checked this pass — no
+    // evidence they're broken; don't touch what isn't confirmed broken.
     tool: 'ChatGPT',
-    promptInput: '#mobile-composer-prompt',
+    promptInput: '#prompt-textarea',
     submitButton: '[data-testid="send-button"]', // TODO: unconfirmed — awaiting real <button> markup, only the inner <svg> was captured so far
     responseContainer: '[data-assistant-markdown]',
     modelVersionSelector: null, // TODO: find where ChatGPT exposes the active model in the DOM
@@ -625,13 +634,28 @@ function showCoachIcon(input, text) {
   positionCoachIcon()
 }
 
-function hideCoachWidget() {
-  if (coachIconHost) coachIconHost.style.display = 'none'
+// Closes the card only — the icon (the persistent "a suggestion is
+// available" indicator) stays exactly as it was. This is what × buttons,
+// Escape, and clicking away from the card should all do: collapse the
+// dropdown, not make the trigger itself disappear. Reusing
+// hideCoachWidget() for those was a real bug — clicking away from a just-
+// opened card wiped the icon out too, so it looked like the whole widget
+// vanished right after you clicked it.
+function hideCoachCard() {
   if (coachCardHost) coachCardHost.style.display = 'none'
   // Reset the fade-in state so the next open re-triggers the transition
   // instead of starting already-visible (opacity would otherwise still be
   // 1 from last time, only display:none is what's actually hiding it).
   coachCardShadow?.getElementById('card')?.classList.remove('open')
+}
+
+// Hides both the card AND the icon — for when there's genuinely nothing
+// left to suggest: the prompt was just submitted, the user explicitly
+// dismissed this suggestion, or they're actively typing again (a fresh
+// evaluation after the debounce decides whether to bring the icon back).
+function hideCoachWidget() {
+  if (coachIconHost) coachIconHost.style.display = 'none'
+  hideCoachCard()
 }
 
 window.addEventListener('scroll', () => {
@@ -652,13 +676,16 @@ window.addEventListener('resize', () => {
 // clicks on elements deep inside the card's shadow root.
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return
-  if (coachCardHost?.style.display !== 'none' || coachIconHost?.style.display !== 'none') hideCoachWidget()
+  // Only acts when the card is actually open — the icon alone isn't a
+  // dismissible "thing" Escape should react to, it's just an ambient
+  // indicator; leave it be so it's still there to click later.
+  if (coachCardHost?.style.display !== 'none') hideCoachCard()
 }, true)
 
 document.addEventListener('click', (e) => {
   if (coachCardHost?.style.display === 'none' || !coachCardHost) return
   if (coachCardHost.contains(e.target) || coachIconHost?.contains(e.target)) return
-  hideCoachWidget()
+  hideCoachCard()
 }, true)
 
 async function onCoachIconClick() {
@@ -702,8 +729,8 @@ async function runCoachRewrite(shadow, card) {
       <div class="scroll"><div class="body">Couldn't get a suggestion right now — try again in a moment.</div></div>
       <div class="actions"><button class="dismiss" id="close-err">Close</button></div>
     `
-    shadow.getElementById('close').addEventListener('click', hideCoachWidget)
-    shadow.getElementById('close-err').addEventListener('click', hideCoachWidget)
+    shadow.getElementById('close').addEventListener('click', hideCoachCard)
+    shadow.getElementById('close-err').addEventListener('click', hideCoachCard)
     positionCoachCard()
     return
   }
@@ -737,7 +764,7 @@ async function runCoachRewrite(shadow, card) {
   `
   positionCoachCard()
 
-  shadow.getElementById('close').addEventListener('click', hideCoachWidget)
+  shadow.getElementById('close').addEventListener('click', hideCoachCard)
   shadow.getElementById('dismiss').addEventListener('click', () => {
     coachDismissedTexts.add(coachActiveText)
     hideCoachWidget()
@@ -764,11 +791,11 @@ async function runCoachRewrite(shadow, card) {
         <div class="scroll"><div class="body">Couldn't auto-fill this editor — copied the suggestion to your clipboard instead. Paste it in with Ctrl+V.</div></div>
         <div class="actions"><button class="dismiss" id="close2b">Close</button></div>
       `
-      shadow.getElementById('close2a').addEventListener('click', hideCoachWidget)
-      shadow.getElementById('close2b').addEventListener('click', hideCoachWidget)
+      shadow.getElementById('close2a').addEventListener('click', hideCoachCard)
+      shadow.getElementById('close2b').addEventListener('click', hideCoachCard)
       positionCoachCard()
     } catch {
-      hideCoachWidget()
+      hideCoachCard()
     }
   })
 }
