@@ -50,7 +50,7 @@ export default function Landing({ onEnterUser, onEnterAdmin }) {
           </div>
         </div>
         <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
-          <img src="/mascot-clean.png" alt="CASTmir mascot" style={{ maxWidth: isMobile ? '55vw' : 320, width: '100%', objectFit: 'contain', filter: 'drop-shadow(0 16px 32px rgba(0,0,0,0.15))' }} />
+          <img src="/mascot-clean.png" alt="CASTmir logo" style={{ maxWidth: isMobile ? '55vw' : 320, width: '100%', objectFit: 'contain', filter: 'drop-shadow(0 16px 32px rgba(0,0,0,0.15))' }} />
         </div>
       </section>
 
@@ -119,7 +119,7 @@ export default function Landing({ onEnterUser, onEnterAdmin }) {
 
       {/* CTA */}
       <section style={{ padding: isMobile ? '48px 6%' : '64px 8%', background: `linear-gradient(135deg,${C.garnetD},${C.garnet})`, textAlign: 'center' }}>
-        <img src="/mascot-cta.png" alt="CASTmir mascot" style={{ width: 100, marginBottom: 20, filter: 'drop-shadow(0 8px 20px rgba(0,0,0,0.25))' }} />
+        <img src="/mascot-cta.png" alt="CASTmir logo" style={{ width: 100, marginBottom: 20, filter: 'drop-shadow(0 8px 20px rgba(0,0,0,0.25))' }} />
         <h2 style={{ fontSize: 'clamp(22px,3.5vw,32px)', fontWeight: 800, color: '#fff', marginBottom: 24 }}>
           Install the extension. Start monitoring in minutes.
         </h2>

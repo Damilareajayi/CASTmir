@@ -38,7 +38,7 @@ extension*, *Update*.
    from Step 1 (select the folder itself, not a file inside it).
 3. Click **Select Folder**.
 
-CASTmir should now appear in your extensions list with the mascot-head icon.
+CASTmir should now appear in your extensions list with the CASTmir logo icon.
 
 ## Step 5 — Pin it to your toolbar (recommended)
 

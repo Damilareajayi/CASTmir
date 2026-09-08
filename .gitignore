@@ -1,14 +1,7 @@
 node_modules/
 dist/
-backend/public/
 .env
 *.local
-
-# Backend generated data (regenerate via `npm run ingest && npm run seed`)
-backend/data/*.db
-
-# Original mascot backups kept during image processing — not shipped
-assets-original/
 
 # Claude Code local tool settings — not part of the app
 .claude/
