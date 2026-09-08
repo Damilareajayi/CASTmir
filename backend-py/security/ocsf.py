@@ -28,8 +28,15 @@ def confidence_id_for(confidence: float) -> int:
 
 def format_ocsf_event(*, user_hash: str, session_id: str, tool: str,
                        threat_type: str, severity: str, confidence: float,
-                       observables: dict) -> dict:
-    """Build a Security Finding (class_uid 2001) OCSF event."""
+                       observables: dict, desc: str | None = None) -> dict:
+    """Build a Security Finding (class_uid 2001) OCSF event. desc is the
+    plain-English justification for this specific finding — either the
+    content classifier's own LLM-generated reasoning, or (for the
+    behavioral path, which never reads prompt/response text) a
+    deterministic explanation built from the feature values that actually
+    tripped the detection — see security/classifier.py's _justify(). Shown
+    on the admin dashboard for every alert, and required reading for a
+    high-severity one specifically."""
     now = datetime.now(timezone.utc)
     return {
         "activity_id": 1,          # Create
@@ -48,6 +55,7 @@ def format_ocsf_event(*, user_hash: str, session_id: str, tool: str,
             "types": [threat_type],
             "confidence": confidence,
             "confidence_id": confidence_id_for(confidence),
+            "desc": desc or "No detailed justification available for this finding.",
         },
         "actor": {"user": {"uid": user_hash, "type": "User"}},
         "resources": [{"name": tool, "type": "AI Tool", "uid": session_id}],

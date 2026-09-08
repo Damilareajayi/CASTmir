@@ -1,100 +1,131 @@
-# CASTmir — AI Performance Intelligence
+# CASTmir — AI Performance and Security Monitor
 
-Track, diagnose, and correct AI model degradation across an institution.
+A browser extension + web platform that watches how people actually use AI
+tools (ChatGPT, Claude, Gemini, Copilot, Perplexity) in real time — scores
+prompt quality and maturity, coaches weaker prompts toward better ones,
+flags security risks like prompt injection as they happen, and gives both
+the individual and a research admin their own private view into the data.
 
-CASTmir monitors AI tool usage (ChatGPT, Gemini, Copilot, and others), scores
-output quality over time, statistically detects when it degrades, classifies
-*why* (model drift, prompt drift, or context drift), and closes the loop with
-an AI-powered prompt coach and plain-English reporting.
+Built by the RECAST Team, FSU Innovation Hub.
 
-Built by the RECAST Team, FSU Innovation Hub — funded by the ReliaQuest
-Innovation Challenge Fund.
-
-See **[ARCHITECTURE.md](ARCHITECTURE.md)** for how the pieces fit together.
+See **[ARCHITECTURE.md](ARCHITECTURE.md)** for how the pieces fit together
+and why specific decisions were made.
 
 ## What's here
 
-- **Landing page** — product overview, the four-agent framework, research
-  grounding (Self-Directed Learning theory), and use cases.
-- **Dashboard** — Overview / Models / Agents / Alerts / COACH / Reports tabs,
-  filterable by college, department, and time range (7/30/90 days).
-- **Drift detection** — CUSUM-based statistical process control classifies
-  degradation into Model Drift, Prompt Drift, or Context Drift.
-- **COACH** — an LLM rewrites weak prompts and explains the improvement.
-- **Reports** — plain-English executive or detailed reports, downloadable as
-  PDF or Markdown, generated live from whatever's on screen.
-- **Backend** — a small Express/SQLite API seeded from real human prompts
-  (OpenAssistant/oasst1) with synthetic institutional metadata layered on top,
-  so the frontend can run against real computed data instead of pure mocks.
+- **`extension/`** — Manifest V3 browser extension. Per-site consent (a
+  native permission prompt plus an explicit research-consent screen before
+  anything is captured), an inline Grammarly-style COACH widget that
+  nudges weak prompts as you type, and a toolbar badge that signals
+  security alerts or drift in real time.
+- **`backend-py/`** — FastAPI + DuckDB backend. Four agents (Performance
+  Monitor, Diagnostician, COACH, Reporter) plus a two-track security layer
+  (a behavioral ML classifier and an independent LLM content classifier),
+  S3-backed DuckDB persistence, and a remote-configurable selector system
+  so a broken site selector ships as a one-line admin fix instead of a new
+  extension release.
+- **`frontend/`** — React dashboards (Recharts), auto-refreshing in real
+  time: a private per-person view and an aggregate, alias-grouped admin
+  research view, both with PDF/PPTX/HTML/CSV/JSON report export.
+- **`training/`** — the security classifier's training pipeline (real
+  behavioral features extracted from LMSYS-Chat-1M and a leaked ransomware
+  chat log, used as the normal/attack classes).
 
-## Quick start
+### Feature highlights
 
-Works with just the frontend (uses built-in mock data), or frontend + backend
-for real computed data.
+- **Real prompt/response capture**, not just structural proxies — PMI
+  (Prompt Maturity Index, 1-5) and a 0-100 quality score are computed
+  directly from the actual text.
+- **COACH** rewrites weak prompts in place, tailored to the destination
+  tool's actual strengths, grounded in the user's own real conversation
+  history (never generic `[placeholder]` brackets), and deliberately
+  restrained on prompts that don't need elaborating.
+- **Two independent security detection paths** running on every turn — a
+  behavioral classifier (timing/length/counts only) and a content-based
+  LLM classifier (reads the actual text) — because either one alone misses
+  attacks the other catches. Every high-severity alert carries a
+  plain-English justification, not just a label.
+- **Generic fallback input detection** — the same technique Grammarly
+  uses (HTML's own `<textarea>`/`contenteditable`/`role="textbox"`
+  semantics) kicks in automatically if a site's specific selector breaks,
+  so capture keeps working while the real fix ships.
+- **Timezone-aware reporting** — every trend, chart, and report groups by
+  each person's own local calendar day, not a single global UTC day.
+- **Real-time dashboards** — both dashboards silently refresh every 20
+  seconds; a visible "Live" indicator confirms it rather than leaving you
+  guessing whether the page is stuck.
+- **Research-grade export** — Daily/Weekly/custom-range executive or
+  detailed reports as PDF, PPTX (admin, with native charts), HTML, or
+  Markdown; raw CSV/JSON exports; a dedicated OCSF JSON export of security
+  findings for SIEM ingestion.
 
-### Frontend only
+## Local development
 
-```bash
-npm install
-npm run dev        # http://localhost:5173
+### Extension
+
+Not published to the Chrome Web Store yet. Load it unpacked:
+
+```
+chrome://extensions → Developer mode → Load unpacked → select extension/
 ```
 
-### Frontend + backend
+See `extension/INSTALL.md` for the full walkthrough (also what ships
+inside the zip the `/#install` page serves to pilot participants).
+
+### Backend (`backend-py/`)
 
 ```bash
-# 1. Backend — one-time data setup, then serve
-cd backend
-npm install
-npm run ingest      # pulls real prompts from OpenAssistant/oasst1
-npm run seed         # builds a 90-day sessions table from them
-npm run start         # serves the API on :8000
-
-# 2. Frontend — point it at the backend
-cd ..
-npm install
-cp .env.example .env
-echo "VITE_API_URL=http://localhost:8000" >> .env
-npm run dev            # http://localhost:5173
+cd backend-py
+python -m venv .venv && .venv\Scripts\activate   # or source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env   # every value has a working default — fill in only what you need to override
+uvicorn main:app --reload --port 8080
 ```
 
-### Enabling COACH (Agent 3)
+COACH and the content-based security classifier both call AWS Bedrock via
+`boto3` — no API key in `.env`; configure AWS credentials on the machine
+once (`aws configure` or `aws login`), with Bedrock model access enabled
+for an Anthropic model in the configured region (`AWS_REGION`, defaults
+`us-east-1`; model via `BEDROCK_MODEL_ID`, defaults to
+`us.anthropic.claude-haiku-4-5-20251001-v1:0`).
 
-COACH rewrites prompts via AWS Bedrock behind a server-side proxy — nothing
-AWS-related reaches the browser. No API key goes in `.env`; instead, configure
-AWS credentials on this machine once:
+DuckDB persists to `backend-py/data/castmir.duckdb` locally. In
+production it's backed up to and restored from S3 on an interval (see
+ARCHITECTURE.md) — set `S3_BACKUP_BUCKET` to opt into that locally too,
+or leave it unset for a plain local file.
+
+### Frontend (`frontend/`)
 
 ```bash
-aws configure     # or: aws login
+cd frontend
+npm install
+npm run dev        # http://localhost:5173, proxies to the backend
 ```
 
-The account needs Bedrock model access enabled for an Anthropic model in the
-configured Region (defaults to `us-east-1`, model defaults to
-`us.anthropic.claude-haiku-4-5-20251001-v1:0` — override with
-`BEDROCK_MODEL_ID` in `.env` if needed).
+Set `VITE_API_URL` (or `'SAME_ORIGIN'` for the production same-origin
+setup the Docker image uses) in `frontend/.env` if not pointing at the
+default deployed backend.
 
-Without valid credentials, the COACH tab still renders and explains what to
-set up — it just won't return a rewrite.
+## Deployment
 
-## Scripts
-
-| Location | Command | Does |
-|---|---|---|
-| root | `npm run dev` | Start the Vite dev server |
-| root | `npm run build` | Production build to `dist/` |
-| root | `npm run preview` | Preview the production build |
-| `backend/` | `npm run ingest` | Pull real prompts from OpenAssistant/oasst1 |
-| `backend/` | `npm run seed` | Populate the SQLite `sessions` table |
-| `backend/` | `npm run start` | Serve the API on port 8000 |
+Single AWS App Runner service (`castmir-api`), single Docker image
+(`backend-py/Dockerfile`, multi-stage — builds `frontend/`, regenerates
+the extension's install zip fresh from `extension/` on every build, then
+copies both into the Python image, which serves the API and the static
+frontend from one origin). See ARCHITECTURE.md's Deployment section for
+the actual build/deploy pipeline (CodeBuild + ECR + App Runner, no local
+Docker required).
 
 ## Tech stack
 
-React 18 · Vite 5 · Recharts · Express · Node's built-in `node:sqlite` (no
-native build step) · jsPDF for report export · AWS Bedrock (`@aws-sdk/client-bedrock-runtime`) for COACH.
+Extension: vanilla JS, Manifest V3, `webextension-polyfill`.
+Backend: Python 3.12, FastAPI, DuckDB, boto3 (AWS Bedrock), scikit-learn
+(security classifier). Frontend: React 18, Vite 5, Recharts, jsPDF,
+pptxgenjs. Deployed on AWS App Runner, built via CodeBuild, images in ECR.
 
-## Data honesty
+## Older code in this repo
 
-Accuracy and prompt-maturity numbers are computed for real from real human
-prompt text. Which college, department, model, and date each session is
-attributed to is synthetic — FSU has not yet granted access to real
-institutional usage data. See `data_source` in the API's summary response, and
-the "Data honesty" note in [ARCHITECTURE.md](ARCHITECTURE.md).
+`backend/`, `src/`, and root-level `index.html`/`package.json` are the
+original PRISM-era Node/Express + single-dashboard React app — a
+different, earlier project this repo evolved from. Not part of the
+current system; do not add features there. See ARCHITECTURE.md.

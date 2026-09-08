@@ -38,11 +38,12 @@ def classify(features: list[float]) -> dict:
     if model is None:
         # No trained model yet — fail safe to "no threat detected" rather than
         # block session ingestion. train.py must run before this is meaningful.
-        return {"threat_score": 0.0, "threat_type": None, "trained": False}
+        return {"threat_score": 0.0, "threat_type": None, "reasoning": None, "trained": False}
 
     threat_score = float(model.predict_proba([features])[0][1])
     threat_type = _subclassify(features) if threat_score > 0.5 else None
-    return {"threat_score": round(threat_score, 3), "threat_type": threat_type, "trained": True}
+    reasoning = _justify(features, threat_type) if threat_type else None
+    return {"threat_score": round(threat_score, 3), "threat_type": threat_type, "reasoning": reasoning, "trained": True}
 
 
 def _subclassify(features: list[float]) -> str:
@@ -56,3 +57,25 @@ def _subclassify(features: list[float]) -> str:
     if f["token_ratio"] > 5:
         return "mcp_attack"
     return "anomaly"
+
+
+# This path never reads prompt/response text (see features.py's docstring),
+# so it has no free-text explanation the way the content-based path does —
+# the model itself only answers "attack-shaped or not". This gives the same
+# kind of one-sentence justification the LLM path produces, built from the
+# actual feature values that tripped the matching _subclassify() branch,
+# rather than leaving a high-severity alert with no stated reason at all.
+def _justify(features: list[float], threat_type: str) -> str:
+    f = dict(zip(FEATURE_NAMES, features))
+    if threat_type == "data_exfiltration":
+        return (f"Input volume spiked to {f['cumulative_token_spike']:.1f}x this user's usual baseline "
+                f"with {f['session_velocity']:.1f} turns/min — consistent with bulk data extraction rather than normal use.")
+    if threat_type == "rag_poisoning":
+        return (f"Response latency spiked well beyond this user's normal pattern and output length varied by "
+                f"{f['output_char_variance']:.0f} chars² — consistent with retrieval content that was manipulated or malformed.")
+    if threat_type == "prompt_injection":
+        return (f"An unusually long prompt ({f['prompt_chars']:.0f} chars) paired with a low prompt-maturity "
+                f"score (PMI {f['pmi_score']:.0f}) — consistent with an injected instruction block rather than a genuine detailed request.")
+    if threat_type == "mcp_attack":
+        return f"Input-to-output token ratio ({f['token_ratio']:.1f}x) is far outside normal range — consistent with a tool/plugin being redirected into unintended behavior."
+    return "Behavioral pattern doesn't match this user's normal usage, but doesn't clearly fit a specific known attack pattern."

@@ -102,7 +102,7 @@ def ingest_session(event: SessionEvent, background_tasks: BackgroundTasks, con=D
         payload = ocsf.format_ocsf_event(
             user_hash=event.user_hash, session_id=event.session_id, tool=event.tool,
             threat_type=threat["threat_type"], severity=coach.security_alert(threat["threat_type"])["severity"],
-            confidence=threat["threat_score"],
+            confidence=threat["threat_score"], desc=threat.get("reasoning"),
             observables={
                 "turn_number": event.turn_number, "threat_score": threat["threat_score"],
                 "detection_method": "content" if threat is content_threat else "behavioral",

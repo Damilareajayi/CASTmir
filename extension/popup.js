@@ -64,7 +64,14 @@ async function registerAlias(userHash, alias) {
     const res = await fetch(`${API_BASE_URL}/api/users/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_hash: userHash, alias, extension_version: browser.runtime.getManifest().version }),
+      body: JSON.stringify({
+        user_hash: userHash, alias, extension_version: browser.runtime.getManifest().version,
+        // Real IANA name (e.g. "America/New_York"), not a UTC offset — an
+        // offset alone can't account for daylight saving. Every day-bucketed
+        // chart/report on this person's own dashboard uses this instead of
+        // defaulting to UTC.
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      }),
     })
     return res.ok
   } catch {

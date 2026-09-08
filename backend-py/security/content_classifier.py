@@ -51,15 +51,20 @@ def _parse_response(text: str) -> dict:
 
 
 def classify_content(prompt_text: str | None, response_text: str | None, tool: str | None) -> dict:
-    """Same return shape as security.classifier.classify() — {threat_score,
-    threat_type} — so routers/sessions.py can combine the two by picking
-    whichever found the higher-confidence match. Fails safe to "no threat"
-    on any error (Bedrock throttling, no prompt_text captured, malformed
-    JSON even after retry) rather than blocking session ingestion — the
-    same fail-open philosophy the behavioral classifier uses when no
-    trained model is available."""
+    """Return shape is security.classifier.classify()'s {threat_score,
+    threat_type} plus a "reasoning" string — routers/sessions.py combines
+    the two classifiers by picking whichever found the higher-confidence
+    match, and carries reasoning through into the OCSF finding as the
+    justification shown for high-severity alerts (the behavioral path has
+    no equivalent free-text explanation, since it never reads the actual
+    content — see routers/sessions.py for how that path's justification
+    gets synthesized instead). Fails safe to "no threat" on any error
+    (Bedrock throttling, no prompt_text captured, malformed JSON even after
+    retry) rather than blocking session ingestion — the same fail-open
+    philosophy the behavioral classifier uses when no trained model is
+    available."""
     if not prompt_text:
-        return {"threat_score": 0.0, "threat_type": None}
+        return {"threat_score": 0.0, "threat_type": None, "reasoning": None}
 
     user_prompt = f"""AI TOOL: {tool or 'unknown'}
 
@@ -89,11 +94,12 @@ AI RESPONSE:
             # a tight token budget and break the JSON mid-string.
             parsed = _parse_response(_call(800))
     except Exception:  # noqa: BLE001 — a missed content check shouldn't break ingestion; the behavioral classifier still runs independently
-        return {"threat_score": 0.0, "threat_type": None}
+        return {"threat_score": 0.0, "threat_type": None, "reasoning": None}
 
     if not parsed.get("threat_detected"):
-        return {"threat_score": 0.0, "threat_type": None}
+        return {"threat_score": 0.0, "threat_type": None, "reasoning": None}
     return {
         "threat_score": float(parsed.get("confidence") or 0.75),
         "threat_type": parsed.get("threat_type") or "anomaly",
+        "reasoning": parsed.get("reasoning"),
     }

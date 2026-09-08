@@ -10,6 +10,7 @@ import SecurityPanel from './components/SecurityPanel.jsx'
 import AgentStatus from './components/AgentStatus.jsx'
 import SelectorHealth from './components/SelectorHealth.jsx'
 import UserDrilldown from './components/UserDrilldown.jsx'
+import EventLog from './components/EventLog.jsx'
 import {
   buildAdminReport, reportToMarkdown, downloadText, downloadReportPDF,
   downloadAdminReportSlides, downloadReportHTML, downloadCSV, downloadJSON,
@@ -126,9 +127,9 @@ export default function AdminDashboard({ onBack }) {
       <div style={{ background: C.card, borderBottom: `0.5px solid ${C.border}`, padding: '8px 20px', display: 'flex', alignItems: 'center', gap: 12 }}>
         <span style={{ fontSize: 10, color: C.gray, fontWeight: 600 }}>TIME RANGE</span>
         <div style={{ display: 'flex', gap: 3 }}>
-          {[7, 30, 90].map(d => (
+          {[[1, 'Today'], [7, '7 days'], [30, '30 days'], [90, '90 days']].map(([d, label]) => (
             <button key={d} onClick={() => setDays(d)} style={{ padding: '3px 9px', borderRadius: 5, fontSize: 11, cursor: 'pointer', border: `0.5px solid ${days === d ? C.garnet : C.border}`, background: days === d ? C.garnet : C.bg, color: days === d ? '#fff' : C.gray }}>
-              {d} days
+              {label}
             </button>
           ))}
         </div>
@@ -219,12 +220,13 @@ export default function AdminDashboard({ onBack }) {
                 </div>
 
                 <Card title="Tool comparison">
-                  <Table headers={['Tool', 'Sessions', 'Avg quality', 'Avg threat score']}>
+                  <Table headers={['Tool', 'Sessions', 'Avg quality', 'Avg maturity (PMI)', 'Avg threat score']}>
                     {(data?.tool_comparison ?? []).map((t, i) => (
                       <TR key={i}>
                         <TD><div style={{ display: 'flex', alignItems: 'center', gap: 7 }}><span style={{ width: 9, height: 9, borderRadius: '50%', background: MODEL_COLORS[i % MODEL_COLORS.length], display: 'inline-block' }} /><strong>{t.tool}</strong></div></TD>
                         <TD style={{ color: C.gray }}>{t.sessions?.toLocaleString()}</TD>
                         <TD>{t.avg_quality != null ? `${Math.round(t.avg_quality)}%` : '—'}</TD>
+                        <TD>{t.avg_pmi != null ? `${t.avg_pmi.toFixed(1)}/5` : '—'}</TD>
                         <TD style={{ color: t.avg_threat > 0.3 ? C.red : C.gray }}>{t.avg_threat != null ? t.avg_threat.toFixed(2) : '—'}</TD>
                       </TR>
                     ))}
@@ -266,20 +268,59 @@ export default function AdminDashboard({ onBack }) {
                   </div>
 
                   <Card title="User activity" sub="Grouped by RECAST alias — the same person on multiple devices shows as one row. Click a row to see their full dashboard. Never shows prompt/response content.">
-                    <Table headers={['Alias', 'Devices', 'Sessions', 'Avg quality', 'Avg PMI', 'Last active']}>
+                    <Table headers={['Alias', 'Devices', 'Sessions', 'Avg quality', 'Avg maturity (PMI)', 'Last active']}>
                       {(data?.user_activity ?? []).map((u, i) => (
                         <TR key={i} onClick={() => setSelectedIdentity(u.identity)}>
                           <TD><strong>{u.identity}</strong></TD>
                           <TD style={{ color: C.gray }}>{u.devices}</TD>
                           <TD style={{ color: C.gray }}>{u.sessions?.toLocaleString()}</TD>
                           <TD>{u.avg_quality != null ? `${Math.round(u.avg_quality)}%` : '—'}</TD>
-                          <TD>{u.avg_pmi != null ? u.avg_pmi.toFixed(1) : '—'}</TD>
+                          <TD>{u.avg_pmi != null ? `${u.avg_pmi.toFixed(1)}/5` : '—'}</TD>
                           <TD style={{ color: C.muted }}>{u.last_active ? new Date(u.last_active).toLocaleString() : '—'}</TD>
                         </TR>
                       ))}
                     </Table>
                     {(!data?.user_activity || data.user_activity.length === 0) && (
                       <div style={{ textAlign: 'center', padding: '20px 0', color: C.muted, fontSize: 12 }}>No activity yet.</div>
+                    )}
+                  </Card>
+
+                  <Card
+                    title="Prompting improvement — is CASTmir COACH working?"
+                    sub="Compares each person's average prompt maturity (PMI) in the first half of this period against the second half. Needs at least 4 sessions in the window to show a trend — noise otherwise."
+                    style={{ marginTop: 12 }}>
+                    {(data?.user_improvement ?? []).length > 0 ? (
+                      <>
+                        <ResponsiveContainer width="100%" height={Math.max(160, (data.user_improvement.length) * 34)}>
+                          <BarChart data={data.user_improvement} layout="vertical" margin={{ top: 4, right: 30, left: 10, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke={C.border} horizontal={false} />
+                            <XAxis type="number" tick={{ fontSize: 10, fill: C.gray }} tickLine={false} axisLine={false} tickFormatter={v => `${v > 0 ? '+' : ''}${v}`} />
+                            <YAxis dataKey="identity" type="category" tick={{ fontSize: 10, fill: C.gray }} tickLine={false} axisLine={false} width={90} />
+                            <Tooltip content={<ChartTip />} />
+                            <Bar dataKey="pmi_gain" name="PMI change" radius={[0, 5, 5, 0]}>
+                              {data.user_improvement.map((r, i) => <Cell key={i} fill={r.pmi_gain >= 0 ? C.green : C.red} />)}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                        <Table headers={['Alias', 'Sessions', 'Early PMI', 'Recent PMI', 'Change', 'COACH suggestions received']}>
+                          {data.user_improvement.map((r, i) => (
+                            <TR key={i} onClick={() => setSelectedIdentity(r.identity)}>
+                              <TD><strong>{r.identity}</strong></TD>
+                              <TD style={{ color: C.gray }}>{r.sessions}</TD>
+                              <TD>{r.early_avg_pmi != null ? r.early_avg_pmi.toFixed(1) : '—'}</TD>
+                              <TD>{r.recent_avg_pmi != null ? r.recent_avg_pmi.toFixed(1) : '—'}</TD>
+                              <TD style={{ color: r.pmi_gain >= 0 ? C.green : C.red, fontWeight: 700 }}>
+                                {r.pmi_gain != null ? `${r.pmi_gain > 0 ? '+' : ''}${r.pmi_gain}` : '—'}
+                              </TD>
+                              <TD style={{ color: C.gray }}>{r.intervention_count}</TD>
+                            </TR>
+                          ))}
+                        </Table>
+                      </>
+                    ) : (
+                      <div style={{ textAlign: 'center', padding: '20px 0', color: C.muted, fontSize: 12 }}>
+                        Nobody has 4+ sessions in this window yet — widen the time range to see improvement trends.
+                      </div>
                     )}
                   </Card>
                 </div>
@@ -293,11 +334,30 @@ export default function AdminDashboard({ onBack }) {
               </div>
             )}
 
-            {tab === 'Security' && <SecurityPanel events={data?.security_feed ?? []} />}
+            {tab === 'Security' && (
+              <div>
+                <SecurityPanel events={data?.security_feed ?? []} />
+                <div style={{ marginTop: 12 }}>
+                  <EventLog events={data?.event_log ?? []} />
+                </div>
+              </div>
+            )}
 
             {tab === 'Reports' && (
               <div>
                 <Card title="📄 Cohort Report" sub="Plain-English summary of what's happening across the cohort — no prompt/response content, ever" style={{ marginBottom: 14 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                    <span style={{ fontSize: 10, color: C.gray, fontWeight: 600 }}>REPORT PERIOD</span>
+                    <div style={{ display: 'flex', gap: 3 }} role="group" aria-label="Report period">
+                      {[[1, 'Daily'], [7, 'Weekly'], [days !== 1 && days !== 7 ? days : 30, `Custom (${days !== 1 && days !== 7 ? days : 30}d)`]].map(([d, label]) => (
+                        <button key={label} onClick={() => setDays(d)}
+                          style={{ padding: '4px 10px', borderRadius: 5, fontSize: 11, cursor: 'pointer', border: `0.5px solid ${days === d ? C.garnet : C.border}`, background: days === d ? C.garnet : C.bg, color: days === d ? '#fff' : C.gray, fontWeight: days === d ? 600 : 400 }}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    <span style={{ fontSize: 10, color: C.muted }}>— also sets the TIME RANGE for the rest of the dashboard, so the report matches exactly what's shown.</span>
+                  </div>
                   <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'stretch' : 'center', gap: 10, marginBottom: 16 }}>
                     <div style={{ display: 'flex', gap: 3 }} role="group" aria-label="Report detail level">
                       {[['executive', 'Executive Summary'], ['detailed', 'Detailed Report']].map(([m, label]) => (
@@ -364,6 +424,8 @@ export default function AdminDashboard({ onBack }) {
                       { label: 'User activity (by alias)', fmt: 'CSV', fn: () => downloadCSV(data?.user_activity ?? [], 'castmir-user-activity.csv') },
                       { label: 'Drift events log', fmt: 'JSON', fn: () => downloadJSON(data?.drift_events ?? [], 'castmir-drift-events.json') },
                       { label: 'Security event feed (no OCSF payload)', fmt: 'CSV', fn: () => downloadCSV((data?.security_feed ?? []).map(({ ocsf_payload, ...rest }) => rest), 'castmir-security-feed.csv') },
+                      { label: 'Day-to-day event log', fmt: 'CSV', fn: () => downloadCSV(data?.event_log ?? [], 'castmir-event-log.csv') },
+                      { label: 'Prompting improvement (by alias)', fmt: 'CSV', fn: () => downloadCSV(data?.user_improvement ?? [], 'castmir-user-improvement.csv') },
                     ].map((e, i) => (
                       <div key={i} onClick={e.fn} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', borderRadius: 9, border: `0.5px solid ${C.border}`, cursor: 'pointer', background: C.bg, transition: 'background 0.15s' }}
                         onMouseOver={ev => ev.currentTarget.style.background = C.light}

@@ -78,6 +78,13 @@ ALTER TABLE sessions ADD COLUMN IF NOT EXISTS response_text TEXT;
 -- the same real person across devices/reinstalls (each generates its own
 -- random user_hash) without needing anyone's actual name.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS alias VARCHAR;
+-- IANA timezone name (e.g. "America/New_York"), captured client-side via
+-- Intl.DateTimeFormat().resolvedOptions().timeZone at consent time. Lets
+-- day-bucketed queries (quality trend, PMI trend, the event log) group by
+-- THIS person's actual calendar day instead of UTC's — a session logged
+-- at 9pm Eastern was landing in "tomorrow" on every chart before this.
+-- NULL falls back to UTC (pre-existing users, or a capture failure).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS timezone VARCHAR;
 
 CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_hash);
 CREATE INDEX IF NOT EXISTS idx_sessions_tool ON sessions(tool);

@@ -38,6 +38,16 @@ function halfSplitChange(rows, key) {
   return (a != null && b != null) ? b - a : 0
 }
 
+// "Daily"/"Weekly" read as a deliberate report cadence someone picked, not
+// just a number of days — 1 and 7 are exactly the two the Reports tab's
+// period buttons set days to, so this recognizes both automatically
+// without needing a separate "period" concept threaded through here too.
+function periodLabel(days) {
+  if (days === 1) return 'Daily'
+  if (days === 7) return 'Weekly'
+  return `${days}-Day`
+}
+
 // ── Admin (cohort) report ───────────────────────────────────────────
 export function buildAdminReport(data, { mode = 'executive', days = 30 } = {}) {
   const trend = data.accuracy_trend || []
@@ -64,12 +74,13 @@ export function buildAdminReport(data, { mode = 'executive', days = 30 } = {}) {
   const totalDevices = users.reduce((s, u) => s + (u.devices || 0), 0)
 
   const now = new Date()
-  const title = mode === 'detailed' ? 'CASTmir Detailed Cohort Report' : 'CASTmir Cohort Executive Summary'
-  const subtitle = `Last ${days} days · Generated ${now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`
+  const period = periodLabel(days)
+  const title = mode === 'detailed' ? `CASTmir ${period} Detailed Cohort Report` : `CASTmir ${period} Cohort Executive Summary`
+  const subtitle = `${period === 'Daily' || period === 'Weekly' ? period : `Last ${days} days`} · Generated ${now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`
 
   const sections = []
   const summaryParas = [
-    `Over the last ${days} days, average prompt/response quality across the cohort was ${overallQuality != null ? overallQuality.toFixed(1) : '—'}%, which has ${trendWord(change)} within this window (${change ? fmtPct(change) : '—'}). CASTmir monitored ${fmtNum(totalSessions)} sessions from ${users.length} distinct user${users.length === 1 ? '' : 's'}.`,
+    `Over the last ${days} day${days === 1 ? '' : 's'}, average prompt/response quality across the cohort was ${overallQuality != null ? overallQuality.toFixed(1) : '—'}%, which has ${trendWord(change)} within this window (${change ? fmtPct(change) : '—'}). CASTmir monitored ${fmtNum(totalSessions)} sessions from ${users.length} distinct user${users.length === 1 ? '' : 's'}.`,
   ]
   if (activeAlerts.length > 0) {
     summaryParas.push(
@@ -167,12 +178,13 @@ export function buildUserReport(data, { mode = 'executive', days = 30 } = {}) {
   const interventions = data.recent_interventions || []
 
   const now = new Date()
-  const title = mode === 'detailed' ? 'Your CASTmir Progress Report' : 'Your CASTmir Summary'
-  const subtitle = `Last ${days} days · Generated ${now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`
+  const period = periodLabel(days)
+  const title = mode === 'detailed' ? `Your CASTmir ${period} Progress Report` : `Your CASTmir ${period} Summary`
+  const subtitle = `${period === 'Daily' || period === 'Weekly' ? period : `Last ${days} days`} · Generated ${now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`
 
   const sections = []
   const summaryParas = [
-    `Over the last ${days} days, your average prompt/response quality was ${overallQuality != null ? overallQuality.toFixed(1) : '—'}%, which has ${trendWord(change)} within this window. You had ${fmtNum(totalSessions)} session${totalSessions === 1 ? '' : 's'} across ${tools.length} tool${tools.length === 1 ? '' : 's'}.`,
+    `Over the last ${days} day${days === 1 ? '' : 's'}, your average prompt/response quality was ${overallQuality != null ? overallQuality.toFixed(1) : '—'}%, which has ${trendWord(change)} within this window. You had ${fmtNum(totalSessions)} session${totalSessions === 1 ? '' : 's'} across ${tools.length} tool${tools.length === 1 ? '' : 's'}.`,
   ]
   if (overallPmi != null) {
     summaryParas.push(`Your average Prompt Maturity Index (PMI) was ${overallPmi.toFixed(1)}/5 — this measures how well-structured your prompts are (role, context, constraints, examples).`)

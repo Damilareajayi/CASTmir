@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts'
-import { C } from './constants.js'
+import { C, MODEL_COLORS } from './constants.js'
 import { getUserDashboard } from './api.js'
 import { Card, KPI, Table, TR, TD, Pill, ChartTip, CastmirBar, LiveBadge, useIsMobile } from './components/UI.jsx'
 import SecurityPanel from './components/SecurityPanel.jsx'
@@ -29,6 +29,7 @@ export default function UserDashboard({ onBack }) {
   const [error, setError] = useState(null)
   const [reportMode, setReportMode] = useState('executive')
   const [lastUpdated, setLastUpdated] = useState(null)
+  const [days, setDays] = useState(30)
 
   // opts.silent (used by the auto-refresh tick below) skips the loading
   // spinner / error banner so this page keeps itself current on its own —
@@ -37,11 +38,11 @@ export default function UserDashboard({ onBack }) {
   const load = useCallback((opts = {}) => {
     if (!userHash) return
     if (!opts.silent) { setLoading(true); setError(null) }
-    getUserDashboard(userHash)
+    getUserDashboard(userHash, days)
       .then(d => { setData(d); setLastUpdated(Date.now()) })
       .catch(e => { if (!opts.silent) setError(e.message) })
       .finally(() => { if (!opts.silent) setLoading(false) })
-  }, [userHash])
+  }, [userHash, days])
 
   useEffect(() => { load() }, [load])
 
@@ -88,8 +89,8 @@ export default function UserDashboard({ onBack }) {
 
   const report = useMemo(() => {
     if (!data) return null
-    return buildUserReport(data, { mode: reportMode, days: 30 })
-  }, [data, reportMode])
+    return buildUserReport(data, { mode: reportMode, days })
+  }, [data, reportMode, days])
 
   return (
     <div style={{ fontFamily: 'system-ui,-apple-system,sans-serif', background: C.bg, minHeight: '100vh' }}>
@@ -110,6 +111,18 @@ export default function UserDashboard({ onBack }) {
         </div>
       </div>
 
+      <div style={{ background: C.card, borderBottom: `0.5px solid ${C.border}`, padding: '8px 20px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 10, color: C.gray, fontWeight: 600 }}>PERIOD</span>
+        <div style={{ display: 'flex', gap: 3 }}>
+          {[[1, 'Today'], [7, 'Weekly'], [30, '30 days'], [90, '90 days']].map(([d, label]) => (
+            <button key={d} onClick={() => setDays(d)} style={{ padding: '3px 9px', borderRadius: 5, fontSize: 11, cursor: 'pointer', border: `0.5px solid ${days === d ? C.garnet : C.border}`, background: days === d ? C.garnet : C.bg, color: days === d ? '#fff' : C.gray }}>
+              {label}
+            </button>
+          ))}
+        </div>
+        {data?.timezone && <span style={{ fontSize: 10, color: C.muted, marginLeft: 'auto' }}>Times shown in your timezone ({data.timezone})</span>}
+      </div>
+
       <div style={{ padding: isMobile ? '14px 12px' : '18px 20px', maxWidth: 1200, margin: '0 auto' }}>
         {loading ? (
           <div style={{ textAlign: 'center', padding: '80px 0', color: C.muted }}>Loading your dashboard...</div>
@@ -120,12 +133,12 @@ export default function UserDashboard({ onBack }) {
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(4,1fr)', gap: 10, marginBottom: 16 }}>
               <KPI label="Avg quality" value={qualities.length ? `${Math.round(qualities.reduce((a, b) => a + b, 0) / qualities.length)}%` : '—'} color={C.garnet} />
               <KPI label="Avg PMI" value={pmis.length ? (pmis.reduce((a, b) => a + b, 0) / pmis.length).toFixed(1) : '—'} sub="/5" color={C.navy} />
-              <KPI label="Sessions (30d)" value={totalSessions} color={C.teal} />
+              <KPI label={`Sessions (${days === 1 ? 'today' : `${days}d`})`} value={totalSessions} color={C.teal} />
               <KPI label="Active alerts" value={activeAlerts} color={activeAlerts > 0 ? C.red : C.green} />
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12, marginBottom: 12 }}>
-              <Card title="Your quality trend" sub="Score per day, last 30 days">
+              <Card title="Your quality trend" sub={`Score per day, ${days === 1 ? 'today' : `last ${days} days`}`}>
                 <ResponsiveContainer width="100%" height={200}>
                   <LineChart data={qualitySeries} margin={{ top: 4, right: 4, left: -22, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
@@ -149,16 +162,34 @@ export default function UserDashboard({ onBack }) {
               </Card>
             </div>
 
-            <Card title="Tool usage" style={{ marginBottom: 12 }}>
-              <Table headers={['Tool', 'Sessions', 'Avg quality']}>
+            <Card title="What you've done on each AI tool" sub="How you use each tool, and how mature your prompts are there — side by side" style={{ marginBottom: 12 }}>
+              {(data?.tool_breakdown ?? []).length > 0 && (
+                <ResponsiveContainer width="100%" height={180}>
+                  <BarChart data={data.tool_breakdown} margin={{ top: 4, right: 4, left: -22, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={C.border} vertical={false} />
+                    <XAxis dataKey="tool" tick={{ fontSize: 10, fill: C.gray }} tickLine={false} axisLine={false} />
+                    <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: C.gray }} tickLine={false} axisLine={false} tickFormatter={v => `${v}%`} />
+                    <Tooltip content={<ChartTip />} />
+                    <Legend iconType="circle" iconSize={7} wrapperStyle={{ fontSize: 11 }} />
+                    <Bar dataKey="avg_quality" name="Avg quality" radius={[5, 5, 0, 0]}>
+                      {data.tool_breakdown.map((_, i) => <Cell key={i} fill={MODEL_COLORS[i % MODEL_COLORS.length]} />)}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+              <Table headers={['Tool', 'Sessions', 'Avg quality', 'Avg maturity (PMI)']}>
                 {(data?.tool_breakdown ?? []).map((t, i) => (
                   <TR key={i}>
-                    <TD><strong>{t.tool}</strong></TD>
+                    <TD><div style={{ display: 'flex', alignItems: 'center', gap: 7 }}><span style={{ width: 9, height: 9, borderRadius: '50%', background: MODEL_COLORS[i % MODEL_COLORS.length], display: 'inline-block' }} /><strong>{t.tool}</strong></div></TD>
                     <TD style={{ color: C.gray }}>{t.sessions}</TD>
                     <TD>{t.avg_quality != null ? `${Math.round(t.avg_quality)}%` : '—'}</TD>
+                    <TD>{t.avg_pmi != null ? `${t.avg_pmi.toFixed(1)}/5` : '—'}</TD>
                   </TR>
                 ))}
               </Table>
+              {(!data?.tool_breakdown || data.tool_breakdown.length === 0) && (
+                <div style={{ textAlign: 'center', padding: '20px 0', color: C.muted, fontSize: 12 }}>No tool usage yet.</div>
+              )}
             </Card>
 
             <Card title="Recent sessions" sub="Grouped by conversation, not by turn — a clarifying question doesn't drag down the session's score" style={{ marginBottom: 12 }}>
