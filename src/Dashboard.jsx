@@ -1,5 +1,5 @@
 /**
- * CASTMIR — Dashboard
+ * CASTmir — Dashboard
  * All imports are from the same src/ folder.
  * Uses mock data by default. Set VITE_API_URL to connect a real backend.
  */
@@ -210,9 +210,9 @@ export default function Dashboard({ onBack }) {
               </button>
             )}
             <div onClick={onBack} style={{ display:'flex', alignItems:'center', gap:10, cursor: onBack ? 'pointer' : 'default' }}>
-              <img src='/mascot-head.png' alt='CASTMIR' style={{ width:32, height:32, objectFit:'contain' }} />
+              <img src='/mascot-head.png' alt='CASTmir' style={{ width:32, height:32, objectFit:'contain' }} />
               <div>
-                <div style={{ color:'#fff', fontWeight:700, fontSize:17, letterSpacing:3 }}>CASTMIR</div>
+                <div style={{ color:'#fff', fontWeight:700, fontSize:17, letterSpacing:3 }}>CASTmir</div>
                 <div style={{ color:C.gold, fontSize:8, letterSpacing:1, marginTop:-2 }}>AI PERFORMANCE INTELLIGENCE</div>
               </div>
             </div>
@@ -326,7 +326,7 @@ export default function Dashboard({ onBack }) {
         ) : loading ? (
           <div style={{ textAlign:'center', padding:'80px 0', color:C.muted }}>
             <div style={{ width:32, height:32, border:`3px solid ${C.border}`, borderTopColor:C.garnet, borderRadius:'50%', animation:'spin 0.8s linear infinite', margin:'0 auto 16px' }} />
-            Loading CASTMIR data...
+            Loading CASTmir data...
           </div>
         ) : data && <>
 
@@ -676,8 +676,8 @@ export default function Dashboard({ onBack }) {
       {/* Footer */}
       <div style={{ background:C.card, borderTop:`0.5px solid ${C.border}`, padding:'10px 20px', display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:6, marginTop:24, textAlign: isMobile ? 'center' : 'left' }}>
         <div onClick={onBack} style={{ display:'flex', alignItems:'center', gap:8, cursor: onBack ? 'pointer' : 'default' }}>
-          <img src='/mascot-head.png' alt='CASTMIR' style={{ width:22, objectFit:'contain' }} />
-          <span style={{ fontSize:12, fontWeight:700, color:C.garnet, letterSpacing:2 }}>CASTMIR</span>
+          <img src='/mascot-head.png' alt='CASTmir' style={{ width:22, objectFit:'contain' }} />
+          <span style={{ fontSize:12, fontWeight:700, color:C.garnet, letterSpacing:2 }}>CASTmir</span>
         </div>
         <span style={{ fontSize:10, color:C.muted }}>AI Performance Intelligence · RECAST Team · FSU Innovation Hub · ReliaQuest 2026</span>
         <div style={{ display:'flex', alignItems:'center', gap:5 }}>

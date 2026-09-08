@@ -1,5 +1,5 @@
 /**
- * CASTMIR backend — ingest real human prompts from OpenAssistant/oasst1
+ * CASTmir backend — ingest real human prompts from OpenAssistant/oasst1
  * (ungated, public dataset) via HuggingFace's datasets-server REST API.
  * No account or token required — used as realistic stand-in text for
  * LMSYS-Chat-1M until FSU's real data-sharing agreement grants access.

@@ -1,5 +1,5 @@
 /**
- * CASTMIR — Shared UI Components
+ * CASTmir — Shared UI Components
  * CastmirBar · KPI · Card · Pill · Table · ChartTip · AccBar · Counter · useVisible
  */
 import { useState, useEffect, useRef } from 'react'

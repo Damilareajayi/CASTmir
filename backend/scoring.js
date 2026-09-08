@@ -1,5 +1,5 @@
 /**
- * CASTMIR backend — scoring & drift detection
+ * CASTmir backend — scoring & drift detection
  * Ported from src/agents.js (Agent 1 + Agent 2 logic) so the same math
  * that documents the frontend also runs server-side against real prompt text.
  */

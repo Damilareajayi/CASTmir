@@ -1,118 +1,168 @@
-# CASTMIR — Architecture
+# CASTmir — Architecture
 
-CASTMIR is an AI Performance Intelligence System: it monitors AI tool usage across an
-institution, detects when quality degrades, classifies *why*, and surfaces both the
-raw data and a plain-English report. It ships as two independent pieces — a React
-frontend and a small Express/SQLite backend — that talk over a plain REST API.
+CASTmir is a browser extension + web platform that monitors AI tool usage as it
+happens: a Chrome extension captures each prompt/response turn on supported AI
+sites, a FastAPI/DuckDB backend scores it for quality and security risk, and two
+separate dashboards surface the results — a private per-user view and an
+anonymized cohort-wide research view.
 
 ```
-┌─────────────────────────┐        HTTP (VITE_API_URL)        ┌──────────────────────────┐
-│  Frontend (Vite/React)  │ ───────────────────────────────▶ │  Backend (Express)       │
-│  localhost:5173         │ ◀─────────────────────────────── │  localhost:8000          │
-│                         │           JSON                    │                          │
-│  Landing.jsx            │                                    │  server.js (routes)      │
-│  Dashboard.jsx          │                                    │  aggregate.js (queries)  │
-│  agents.js  (Agent 1-4  │                                    │  scoring.js (PMI/CUSUM)  │
-│    logic, client copy)  │                                    │  db.js (SQLite)          │
-│  report.js  (Agent 4    │                                    │  ingest.js / seed.js     │
-│    narrative + PDF)     │                                    │    (data population)     │
-│  mockData.js (fallback) │                                    │                          │
-└─────────────────────────┘                                    └──────────────────────────┘
+┌────────────────────┐   session events    ┌──────────────────────────┐   reads   ┌────────────────────┐
+│  extension/         │ ───────────────────▶│  backend-py/              │◀──────────│  frontend/          │
+│  content.js          │   POST /api/session │  FastAPI + DuckDB         │           │  UserDashboard.jsx  │
+│  background.js       │                     │  agents/  (1-4)           │           │  AdminDashboard.jsx │
+│  popup.html/js        │                    │  security/ (classifier,   │           │  Landing.jsx        │
+│                       │                    │    OCSF)                  │           │                     │
+└────────────────────┘                      └──────────────────────────┘           └────────────────────┘
+                                                        │
+                                                        ▼
+                                              AWS Bedrock (COACH, Agent 3)
 ```
 
-If `VITE_API_URL` is unset, the frontend falls back to `mockData.js` (synthetic,
-in-browser, no network) — so the UI always works even with the backend off.
+All three pieces (`extension/`, `backend-py/`, `frontend/`) are served/deployed
+together in production — `backend-py`'s Docker image builds `frontend/` in a
+build stage and serves the static output itself (same-origin, no CORS needed
+for the frontend's own calls). The extension talks to the deployed backend
+over HTTPS from any machine it's installed on.
 
-## Frontend — `src/`
+The original `backend/` (Express/SQLite) and `src/` (old single-dashboard
+frontend) directories are the previous architecture, kept only because a
+service is still live on the old URL — not part of the current system. Do
+not add features there.
 
-| File | Role |
-|---|---|
-| `main.jsx`, `Root.jsx` | Entry point + hash-based router (`#dashboard` vs landing). No react-router — just `window.location.hash`. |
-| `Landing.jsx` | Marketing/landing page: hero, stats, RECAST callout, problem statement, four-agent explainer, research framework, use cases, about, CTA, footer. |
-| `Dashboard.jsx` | The actual product: tabbed dashboard (Overview / Models / Agents / Alerts / COACH / Reports), college/department/time-range filters, live-updating ticker. |
-| `UI.jsx` | Shared presentational components (`Card`, `KPI`, `Table`, `Pill`, `CastmirBar`, `ChartTip`, `useVisible` scroll-reveal hook, `Counter`). |
-| `constants.js` | Brand colors, the 8 tracked AI models, all 17 FSU colleges + departments, the 4-agent definitions used on the landing page. |
-| `mockData.js` | Deterministic seeded-random data generator — used when no backend is configured. Same shapes as the real API. |
-| `agents.js` | Client-side implementations of Agent 1 (scoring/PMI), Agent 2 (CUSUM drift detection), Agent 3 (COACH — calls `/api/coach` via the Vite dev-server proxy to an LLM provider), Agent 4 (CSV/JSON export helpers). |
-| `report.js` | Turns dashboard data into a plain-English narrative (executive or detailed), with PDF (jsPDF) and Markdown/text export. |
+## Data flow — one AI turn, start to finish
 
-**The "4 agents" concept** (Performance Monitor, Degradation Diagnostician, COACH,
-Reporting Engine) is the product's whole framing — see `AGENT_DEFS` in
-`constants.js` for the narrative, and `agents.js` / `report.js` / `backend/scoring.js`
-for the actual math behind Agents 1, 2, and 4. Agent 3 (COACH) is the only one that
-calls a real LLM.
+1. **Capture.** `content.js` watches the DOM on a supported site (ChatGPT,
+   Claude, Gemini, Copilot, Perplexity — see `SUPPORTED_SITES` in
+   `background.js`). On prompt submit and response completion, it captures
+   the prompt text, the response text, and derived structural signals (word
+   count, role framing, format/constraint language, example usage).
+2. **Consent gate.** Nothing is captured until two separate approvals are
+   both true for that site: a per-site browser permission (native prompt,
+   requested via a button in the popup — not silently granted at install)
+   and a one-time research consent (cohort code + explicit "I consent"
+   click). The consent screen discloses, in plain language, that prompt and
+   response *content* is captured — see `popup.html`'s `#consent` screen.
+   **Enabling CASTmir on a site is what gives consent** — there is no
+   separate additional opt-in step for content specifically.
+3. **Send.** `background.js` attaches the persistent anonymized `user_hash`
+   (generated once at install, stored in `browser.storage.local`) and POSTs
+   the event to `/api/session/event`.
+4. **Score (Agent 1 — `agents/monitor.py`).** `compute_pmi_from_text()`
+   scores prompt maturity (1-5) directly from the real prompt text when
+   present (falls back to the structural-signal-only `compute_pmi()` if a
+   client ever sends an event without text). `compute_quality()` scores
+   0-100 from response depth, turn engagement, PMI, and latency.
+5. **Diagnose (Agent 2 — `agents/diagnostician.py` + `security/`).** Two
+   tracks, split by problem domain:
+   - **Track 1 (performance):** CUSUM drift detection over the user's
+     recent quality series, classifying Model/Prompt/Context drift.
+   - **Track 2 (security):** two independent detection paths, not one —
+     a *behavioral* path (`security/classifier.py`, a RandomForest trained
+     by `training/train.py`) scores a 10-feature behavioral vector
+     (`security/features.py` — timing/length/counts only, never prompt or
+     response text) for threat likelihood, then a rule-based sub-classifier
+     assigns a specific type (prompt_injection / mcp_attack / rag_poisoning
+     / data_exfiltration / anomaly); and a *content-based* path
+     (`security/content_classifier.py`, same Bedrock model as COACH) that
+     reads the actual prompt/response text and independently classifies it
+     against the same five types. The content-based path exists because
+     the behavioral path's signal misses a well-disguised attack with
+     ordinary length and timing. `routers/sessions.py` runs both Track 2
+     paths on every turn and keeps whichever found the higher-confidence
+     match.
+6. **Store.** Everything — including `prompt_text` and `response_text` —
+   is written to DuckDB's `sessions` table (`data/schema.sql`).
+7. **Alert (Agent 3 — `agents/coach.py`).** If either track's threat_score >
+   0.65, an OCSF-formatted finding (`security/ocsf.py`, tagged with which
+   track caught it) is written to `security_events`, and a template-based
+   warning is returned immediately in the API response — the alert itself
+   is still template-based either way, never a second Bedrock round trip.
+   `background.js` turns that into a `chrome.notifications` popup.
+8. **Read (Agent 4 — `agents/reporter.py`).** The two dashboards pull from
+   the same tables through two different privacy lenses — see below.
 
-### COACH (Agent 3) and AWS Bedrock
+## The two dashboards
 
-`vite.config.js` adds a dev-server middleware at `/api/coach` that calls AWS
-Bedrock's Converse API (`@aws-sdk/client-bedrock-runtime`) using whatever AWS
-credentials are resolvable on the machine running the dev server (the SDK's
-default credential chain — `aws configure`, `aws login`, an instance role,
-etc.). No API key lives in `.env`; nothing AWS-related reaches the browser.
-The model defaults to `us.anthropic.claude-haiku-4-5-20251001-v1:0` and is
-overridable via `BEDROCK_MODEL_ID`. Without valid credentials or Bedrock
-model access, the COACH tab shows a clear setup error instead of failing
-silently.
+- **User dashboard** (`frontend/src/UserDashboard.jsx`, `GET
+  /api/user/{user_hash}/dashboard`) — strictly scoped to one `user_hash`.
+  Every query in `reporter.user_dashboard()` filters on it explicitly, so
+  one user's data can never leak into another's view. Reached by clicking
+  the extension's toolbar icon (once a site is authorized and consent
+  given, a click opens this directly — see `background.js`'s
+  `action.onClicked`) or the popup's "Open full dashboard" button, both of
+  which pass `?hash=<user_hash>` in the URL so there's no manual ID entry
+  in the normal flow. Manual entry (typing in a CASTmir ID) is a fallback
+  for visiting the URL directly, outside the extension.
+- **Admin dashboard** (`frontend/src/AdminDashboard.jsx`, `GET
+  /api/admin/dashboard`) — aggregate-only, never keyed to an individual
+  user. Gated behind a real server-side check: every `/api/admin/*` route
+  requires an `X-Admin-Token` header (`deps.py`'s `require_admin`),
+  checked against the `ADMIN_TOKEN` environment variable. The token is
+  entered once by the admin at runtime and held in `sessionStorage` —
+  never baked into the built JS bundle, which anyone can read via
+  view-source.
 
-## Backend — `backend/`
+## COACH (Agent 3) and AWS Bedrock
 
-Plain Node (no framework beyond Express), using `node:sqlite` (built-in, no native
-build step) so it runs on this machine without Python or a C++ toolchain.
+`agents/coach.py`'s `rewrite_prompt()` calls Bedrock's Converse API
+(`boto3`) server-side only — nothing AWS-related reaches the browser or the
+extension. Model defaults to `us.anthropic.claude-haiku-4-5-20251001-v1:0`
+via `BEDROCK_MODEL_ID`. The deployed backend's IAM role
+(`prism-apprunner-instance-role`) is scoped to exactly that model ARN.
 
-| File | Role |
-|---|---|
-| `ingest.js` | One-time pull of real human prompts from `OpenAssistant/oasst1` (ungated, public) via HuggingFace's `datasets-server` REST API. Stores raw English `prompter` messages in `raw_prompts`. |
-| `seed.js` | Combines real prompt text with *synthetic* institutional metadata (college, department, model, date) across a 90-day window, computing real PMI/quality scores per session via `scoring.js`. Writes to the `sessions` table. |
-| `scoring.js` | Ported from `src/agents.js` — `computePMI`, `scoreSession`, CUSUM (`runCUSUM`), and three-way drift classification (`detectDrift`). Runs against real text, not canned numbers. |
-| `aggregate.js` | SQL aggregation queries that reshape `sessions` rows into exactly the JSON shapes the frontend expects (summary KPIs, trends, college/model comparisons, drift events/distribution, PMI distribution). |
-| `server.js` | Express routes (`/api/summary`, `/api/accuracy/trends`, `/api/sessions/volume`, `/api/accuracy/by-college`, `/api/models/comparison`, `/api/drift/distribution`, `/api/drift/events`, `/api/alerts`, `/api/pmi/distribution`) with CORS enabled for the Vite dev server. |
-| `db.js` | Opens `backend/data/castmir.db` and creates the `raw_prompts` / `sessions` schema if missing. |
-| `constants.js` | Backend-side copy of the model list + FSU college/department structure (kept in sync with `src/constants.js`). |
+## Security classifier training — `training/`
 
-**Data honesty note:** accuracy/PMI numbers are *real* computations over *real* human
-prompt text — but which college, department, model, and date each prompt is
-attributed to is synthetic (FSU has not granted real usage data yet). This is
-documented in the KPI payload's `data_source` field and is the intended design
-until a real institutional data-sharing agreement is in place.
+- **Attack class**: `extract_features.py` parses `blackbasta-llm-rag-v2`'s
+  LlamaIndex docstore (a leaked ransomware-gang chat log, chunked — not a
+  clean dataframe) into real timestamped messages, groups them into
+  sessions, and computes the same feature vector Agent 2 uses at inference.
+- **Normal class**: `extract_lmsys_features.py` does the same over
+  LMSYS-Chat-1M (real multi-turn AI conversations). LMSYS has no per-turn
+  timestamps, so `latency_ms` is synthesized from a distribution shaped
+  like real AI response times — an intentional, documented asymmetry
+  against BlackBasta's real timestamps, not an oversight.
+- `train.py` combines both, trains a `RandomForestClassifier`, and refuses
+  to save a model that misses the precision bar (0.85). First-pass metrics
+  came back suspiciously high (~0.999) — the feature importances showed the
+  model was mostly separating on timing-scale artifacts from how the two
+  datasets were built, not necessarily generalizable attack behavior. Worth
+  retraining with those features down-weighted once real captured session
+  data exists to validate against.
 
-## Running it
+## Deployment
 
-```bash
-# Backend (one-time data setup, then serve)
-cd backend
-npm install
-npm run ingest   # pulls ~1-3k real prompts from oasst1
-npm run seed     # builds the 90-day sessions table
-npm run start    # serves on :8000
+Single App Runner service (`castmir-api`), single Docker image
+(`backend-py/Dockerfile`, multi-stage: builds `frontend/` first, then
+copies the static output into the Python image, which serves both the API
+and the frontend). Base images pull from the ECR Public Gallery
+(`public.ecr.aws/docker/library/...`), not Docker Hub — CodeBuild's shared
+IPs hit Docker Hub's anonymous rate limit during development.
 
-# Frontend
-cd ..
-npm install
-echo "VITE_API_URL=http://localhost:8000" >> .env   # omit to use mock data instead
-npm run dev      # serves on :5173
-```
-
-## Assets
-
-`public/*.png` are the FSU-branded mascot images, background-removed (flood-fill
-script, not checked in) and cropped. `public/mascot-head.png` is a head-only crop
-used everywhere a small square logo is needed (nav, footer, favicon); full-body
-cutouts are used for illustrative placements (hero, about, CTA). Untouched
-originals are kept in `assets-original/` (not served). `public/recast-logo.png` is
-the RECAST Team's own logo, used in the dedicated RECAST section on the landing
-page.
+Remote-build pattern (no local Docker): zip the source with correct
+forward-slash paths (PowerShell's `Compress-Archive` writes Windows
+backslashes into zip entries, which breaks Linux extraction — build zips
+with `System.IO.Compression.ZipFile` + explicit entry names instead), upload
+to S3, trigger the existing CodeBuild project with a source/buildspec
+override, then explicitly call `apprunner start-deployment` — App Runner's
+`update-service` does not reliably force a fresh pull of a `:latest`-tagged
+image when the tag string itself is unchanged, even if the digest behind it
+changed.
 
 ## Known gaps / next steps
 
-- Backend has no auth — fine for local dev, not for a real deployment.
-- `avg_pmi` is nearly identical across all models in the seeded data, because
-  session prompts are drawn from the same real-prompt pool regardless of assigned
-  model — a known artifact of the synthetic-metadata approach, not a bug.
-- COACH (Agent 3) genuinely calls AWS Bedrock now. The rest of the landing page's
-  production architecture claims (BigQuery, Bedrock Agents, Cloud Run for Agents
-  1/2/4) are still aspirational — the current backend is a local stand-in with the
-  same API shape, not the real cloud pipeline.
-- The Bedrock call currently runs from the Vite dev-server process using
-  developer-local AWS credentials. A real deployment would move this to a proper
-  backend route (e.g. `backend/server.js`) running under an IAM role instead of
-  a developer's CLI session.
+- Content capture (prompt/response text) is new as of this revision — get
+  this in front of FSU's IRB before real pilot users see the consent
+  screen, given the increase in data sensitivity versus the original
+  metadata-only design.
+- `content.js`'s per-site DOM selectors are best-effort, not verified
+  against the live sites in a real browser.
+- Firefox support is wired via `webextension-polyfill` but not verified in
+  an actual Firefox instance. Safari needs a separate Xcode-based
+  conversion, out of scope so far.
+- DuckDB is a single file baked into the container — resets on every
+  redeploy, fine for the pilot phase, not for real accumulated data.
+  Migrating to Postgres/RDS is schema-compatible whenever that's needed.
+- The security classifier's training-time metrics are not yet trustworthy
+  (see above) — don't cite the raw precision/recall numbers externally
+  without the caveat.

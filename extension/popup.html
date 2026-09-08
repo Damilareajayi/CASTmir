@@ -1,0 +1,66 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div id="unsupported" class="screen hidden">
+      <img src="icons/icon-48.png" alt="CASTmir" />
+      <h1>CASTmir</h1>
+      <p class="body">
+        CASTmir works on ChatGPT, Claude, Gemini, Copilot, and Perplexity.
+        Visit one of those to get started.
+      </p>
+    </div>
+
+    <div id="authorize" class="screen hidden">
+      <img src="icons/icon-48.png" alt="CASTmir" />
+      <h1>CASTmir</h1>
+      <p class="body">
+        CASTmir isn't active on <strong><span id="authorize-site"></span></strong> yet.
+        Approving lets it read this page, including your prompts and the AI's
+        responses — the next screen explains exactly what that's used for
+        before anything is captured.
+      </p>
+      <button id="authorize-btn">Authorize CASTmir on this site</button>
+    </div>
+
+    <div id="consent" class="screen hidden">
+      <img src="icons/icon-48.png" alt="CASTmir" />
+      <h1>CASTmir</h1>
+      <p class="sub">AI performance and Security Monitor</p>
+      <p class="body">Site access approved. Here's exactly what happens next:</p>
+      <ul class="data-use">
+        <li><strong>What we collect:</strong> the text of your prompts and the AI's responses on this site, plus timing and length signals — captured and stored so CASTmir can score and improve on real examples, not just guesses.</li>
+        <li><strong>What it's for:</strong> scoring your prompt quality, tracking your improvement over time, flagging security risks like prompt injection in real time, and improving CASTmir's scoring accuracy over time.</li>
+        <li><strong>What you get:</strong> a private dashboard only you can see, plus in-the-moment coaching to help you get better results from AI tools.</li>
+        <li><strong>What's shared:</strong> the research team sees your alias alongside summary metrics (session counts, quality/PMI trends) so they can recognize your activity across devices — never your actual prompts or responses tied to your identity.</li>
+        <li><strong>Enabling CASTmir on this site is what gives consent</strong> — clicking below confirms you've read this and agree.</li>
+      </ul>
+      <input id="alias-input" type="text" placeholder="Your RECAST team alias" required minlength="2" autocomplete="off" />
+      <p class="hint" id="alias-hint">An alias is required so the research team can recognize your activity across devices — enter one to continue.</p>
+      <button id="consent-btn" disabled>I consent — start monitoring</button>
+    </div>
+
+    <div id="dashboard" class="screen hidden">
+      <div class="header">
+        <img src="icons/icon-48.png" alt="CASTmir" />
+        <div>
+          <div class="title">CASTmir</div>
+          <div class="sub"><span class="status-dot"></span>Monitoring this tab</div>
+        </div>
+      </div>
+      <div class="kpis">
+        <div class="kpi"><div class="value" id="kpi-quality">—</div><div class="label">Avg quality</div></div>
+        <div class="kpi"><div class="value" id="kpi-pmi">—</div><div class="label">Avg PMI</div></div>
+        <div class="kpi"><div class="value" id="kpi-sessions">—</div><div class="label">Sessions (30d)</div></div>
+      </div>
+      <div id="alerts"></div>
+      <button id="open-dashboard-btn">Open full dashboard →</button>
+    </div>
+
+    <script src="vendor/browser-polyfill.js"></script>
+    <script src="popup.js" type="module"></script>
+  </body>
+</html>

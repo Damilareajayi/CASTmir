@@ -1,8 +1,8 @@
-# CASTMIR — AI Performance Intelligence
+# CASTmir — AI Performance Intelligence
 
 Track, diagnose, and correct AI model degradation across an institution.
 
-CASTMIR monitors AI tool usage (ChatGPT, Gemini, Copilot, and others), scores
+CASTmir monitors AI tool usage (ChatGPT, Gemini, Copilot, and others), scores
 output quality over time, statistically detects when it degrades, classifies
 *why* (model drift, prompt drift, or context drift), and closes the loop with
 an AI-powered prompt coach and plain-English reporting.

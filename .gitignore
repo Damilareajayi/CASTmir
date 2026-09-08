@@ -12,3 +12,21 @@ assets-original/
 
 # Claude Code local tool settings — not part of the app
 .claude/
+
+# Python bytecode cache — anywhere in the repo, not just backend-py/ (a
+# training/__pycache__/*.pyc slipped into a commit once before this caught it)
+__pycache__/
+
+# New Python backend (backend-py) — venv and generated data
+backend-py/.venv/
+backend-py/data/*.duckdb
+backend-py/data/*.duckdb.wal
+
+# Training datasets (large, not shipped — see training/data/README)
+training/data/*
+!training/data/.gitkeep
+
+# Packaged extension build artifact — stale the moment it's made; the
+# Dockerfile now regenerates frontend/public/castmir-extension.zip fresh
+# from extension/ on every deploy, so this local copy is redundant.
+dist-extension/

@@ -1,5 +1,5 @@
 /**
- * CASTMIR — All Four Agents (browser-side JavaScript)
+ * CASTmir — All Four Agents (browser-side JavaScript)
  *
  * Agent 1 — Performance Monitor  : session scoring + PMI
  * Agent 2 — Diagnostician        : CUSUM drift detection
@@ -125,7 +125,7 @@ export function detectDrift(qualitySeries = [], baseline = null, pmiSeries = [])
  * never reach the browser.
  */
 export async function rewritePrompt(originalPrompt, context = {}) {
-  const system = `You are COACH, the Recommendation Engine inside CASTMIR — an AI Performance Intelligence System for universities and institutions.
+  const system = `You are COACH, the Recommendation Engine inside CASTmir — an AI Performance Intelligence System for universities and institutions.
 
 Your job: improve a user's AI prompt so they get better output quality, and explain what you changed so they learn over time.
 

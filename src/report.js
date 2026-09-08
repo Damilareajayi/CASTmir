@@ -1,5 +1,5 @@
 /**
- * CASTMIR — Report Generator (Agent 4 extension)
+ * CASTmir — Report Generator (Agent 4 extension)
  * Turns dashboard data into a plain-English narrative report — executive
  * or detailed — and exports it as PDF, Markdown, or plain text.
  */
@@ -50,7 +50,7 @@ export function buildReport(data, { mode = 'executive', days = 30, college = nul
   const lowPmiPct = totalPmi ? Math.round((lowPmiCount / totalPmi) * 100) : null
 
   const now = new Date()
-  const title = mode === 'detailed' ? 'CASTMIR Detailed Performance Report' : 'CASTMIR Executive Summary'
+  const title = mode === 'detailed' ? 'CASTmir Detailed Performance Report' : 'CASTmir Executive Summary'
   const scopeLabel = scope.charAt(0).toUpperCase() + scope.slice(1)
   const subtitle = `${scopeLabel} · Last ${days} days · Generated ${now.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}`
 
@@ -59,7 +59,7 @@ export function buildReport(data, { mode = 'executive', days = 30, college = nul
   // ── Executive summary (always included) ──────────────────────────
   const summaryParas = []
   summaryParas.push(
-    `Over the last ${days} days, AI tool accuracy across ${scope} averaged ${k.overall_accuracy}%, which has ${trendWord(k.accuracy_change)} compared to the previous period (${fmtPct(k.accuracy_change)}). CASTMIR monitored ${fmtNum(k.total_sessions)} sessions in this window.`
+    `Over the last ${days} days, AI tool accuracy across ${scope} averaged ${k.overall_accuracy}%, which has ${trendWord(k.accuracy_change)} compared to the previous period (${fmtPct(k.accuracy_change)}). CASTmir monitored ${fmtNum(k.total_sessions)} sessions in this window.`
   )
   if (k.active_alerts > 0) {
     summaryParas.push(
@@ -75,7 +75,7 @@ export function buildReport(data, { mode = 'executive', days = 30, college = nul
     )
   }
   if (k.interventions != null) {
-    summaryParas.push(`COACH, CASTMIR's recommendation engine, has stepped in with ${fmtNum(k.interventions)} coaching interventions this period to help people write better prompts.`)
+    summaryParas.push(`COACH, CASTmir's recommendation engine, has stepped in with ${fmtNum(k.interventions)} coaching interventions this period to help people write better prompts.`)
   }
   sections.push({ heading: 'Executive Summary', paragraphs: summaryParas })
 
@@ -96,7 +96,7 @@ export function buildReport(data, { mode = 'executive', days = 30, college = nul
     heading: 'Overall Performance',
     paragraphs: [
       `Overall accuracy sits at ${k.overall_accuracy}% (${fmtPct(k.accuracy_change)} vs. the prior period). Session volume ${trendWord(k.sessions_change)} as well, ${fmtPct(k.sessions_change)} for a total of ${fmtNum(k.total_sessions)} monitored sessions.`,
-      `CASTMIR is currently tracking ${k.models_tracked} AI models across ${k.colleges_covered} college${k.colleges_covered===1?'':'s'}. Data source: ${k.data_source || 'live monitoring feed'}.`,
+      `CASTmir is currently tracking ${k.models_tracked} AI models across ${k.colleges_covered} college${k.colleges_covered===1?'':'s'}. Data source: ${k.data_source || 'live monitoring feed'}.`,
     ],
   })
 
@@ -133,7 +133,7 @@ export function buildReport(data, { mode = 'executive', days = 30, college = nul
     heading: 'Prompt Quality & Learning Signal',
     paragraphs: lowPmiPct != null ? [
       `Prompt Maturity Index (PMI) measures how well-structured a person's prompt is, on a 1-5 scale. Right now, ${lowPmiPct}% of prompts fall into the two lowest tiers (vague, little to no context) — these consistently produce lower-quality answers.`,
-      'This is the clearest lever CASTMIR has to improve outcomes without touching any model: coaching people toward more specific, structured prompts raises quality regardless of which AI tool they use.',
+      'This is the clearest lever CASTmir has to improve outcomes without touching any model: coaching people toward more specific, structured prompts raises quality regardless of which AI tool they use.',
     ] : ['Prompt maturity data was not available for this period.'],
   })
 
@@ -148,7 +148,7 @@ export function buildReport(data, { mode = 'executive', days = 30, college = nul
   sections.push({
     heading: 'About This Report',
     paragraphs: [
-      `Generated automatically by CASTMIR's Reporting Engine (Agent 4) from ${k.data_source || 'the connected monitoring feed'}. Figures reflect the ${days}-day window ending ${now.toLocaleDateString()}.`,
+      `Generated automatically by CASTmir's Reporting Engine (Agent 4) from ${k.data_source || 'the connected monitoring feed'}. Figures reflect the ${days}-day window ending ${now.toLocaleDateString()}.`,
     ],
   })
 
@@ -221,15 +221,15 @@ export function downloadReportPDF(report, filename = 'castmir-report.pdf') {
 export async function downloadReportSlides(report, data, filename = 'castmir-report.pptx') {
   const { default: PptxGenJS } = await import('pptxgenjs')
   const pptx = new PptxGenJS()
-  pptx.defineLayout({ name: 'CASTMIR', width: 10, height: 5.63 })
-  pptx.layout = 'CASTMIR'
+  pptx.defineLayout({ name: 'CASTmir', width: 10, height: 5.63 })
+  pptx.layout = 'CASTmir'
 
   const hex = c => c.replace('#', '')
   const GARNET = hex(C.garnet), GOLD = hex(C.gold), DARK = hex(C.dark), GRAY = hex(C.gray)
   const PALETTE = [C.garnet, C.teal, C.navy, C.amber, C.purple, C.green, C.garnetL, C.gray].map(hex)
 
   const footer = (slide, label) => {
-    slide.addText('CASTMIR · AI Performance Intelligence', { x: 0.4, y: 5.3, w: 6, h: 0.25, fontSize: 8, color: GRAY })
+    slide.addText('CASTmir · AI Performance Intelligence', { x: 0.4, y: 5.3, w: 6, h: 0.25, fontSize: 8, color: GRAY })
     slide.addText(label || '', { x: 6.4, y: 5.3, w: 3.2, h: 0.25, fontSize: 8, color: GRAY, align: 'right' })
   }
   const chartTitle = (slide, text) => {
@@ -239,7 +239,7 @@ export async function downloadReportSlides(report, data, filename = 'castmir-rep
   // Title slide
   let slide = pptx.addSlide()
   slide.background = { color: GARNET }
-  slide.addText('CASTMIR', { x: 0.6, y: 1.7, w: 8.8, h: 1, fontSize: 48, bold: true, color: 'FFFFFF' })
+  slide.addText('CASTmir', { x: 0.6, y: 1.7, w: 8.8, h: 1, fontSize: 48, bold: true, color: 'FFFFFF' })
   slide.addText(report.title, { x: 0.6, y: 2.65, w: 8.8, h: 0.6, fontSize: 22, bold: true, color: GOLD })
   slide.addText(report.subtitle, { x: 0.6, y: 3.2, w: 8.8, h: 0.5, fontSize: 13, color: 'F0E4D0' })
   slide.addText('RECAST Team · FSU Innovation Hub', { x: 0.6, y: 4.9, w: 8.8, h: 0.3, fontSize: 10, color: 'D8B9C4' })
@@ -428,7 +428,7 @@ export function downloadReportHTML(report, data, filename = 'castmir-report.html
   <div class="wrap">
     ${sectionsHtml}
   </div>
-  <footer>CASTMIR · AI Performance Intelligence · RECAST Team, FSU Innovation Hub</footer>
+  <footer>CASTmir · AI Performance Intelligence · RECAST Team, FSU Innovation Hub</footer>
 </body>
 </html>`
 

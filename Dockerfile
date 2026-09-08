@@ -1,4 +1,4 @@
-# CASTMIR — single-container deploy (frontend + API + COACH Bedrock proxy)
+# CASTmir — single-container deploy (frontend + API + COACH Bedrock proxy)
 
 FROM node:22-alpine AS frontend-build
 WORKDIR /app

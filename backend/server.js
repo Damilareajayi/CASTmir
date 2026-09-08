@@ -1,5 +1,5 @@
 /**
- * CASTMIR backend — Express server
+ * CASTmir backend — Express server
  * Serves the same endpoint shapes src/mockData.js produces, but computed
  * from real ingested prompt text + synthetic institutional metadata in SQLite.
  * Also serves the built frontend (public/) and the COACH (Agent 3) Bedrock
@@ -75,7 +75,7 @@ app.get('/api/pmi/distribution', (req, res) => {
   res.json(source.getPmiDistribution(days, college))
 })
 
-app.get('/api/health', (_req, res) => res.json({ ok: true, source: 'CASTMIR backend — SQLite + real oasst1 prompts' }))
+app.get('/api/health', (_req, res) => res.json({ ok: true, source: 'CASTmir backend — SQLite + real oasst1 prompts' }))
 
 // ── COACH (Agent 3) — AWS Bedrock proxy ─────────────────────────────
 // Credentials resolve from the runtime environment (App Runner instance
@@ -108,5 +108,5 @@ app.get(/^(?!\/api\/).*/, (_req, res) => {
 })
 
 app.listen(PORT, () => {
-  console.log(`CASTMIR listening on http://localhost:${PORT}`)
+  console.log(`CASTmir listening on http://localhost:${PORT}`)
 })

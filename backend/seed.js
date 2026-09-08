@@ -1,5 +1,5 @@
 /**
- * CASTMIR backend — seed sessions
+ * CASTmir backend — seed sessions
  * Combines real prompt text (ingested from OpenAssistant/oasst1) with
  * synthetic institutional metadata (college/department/model/date) to
  * build a 90-day window of session records. Quality + PMI are computed

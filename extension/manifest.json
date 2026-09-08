@@ -1,0 +1,51 @@
+{
+  "manifest_version": 3,
+  "name": "CASTmir — AI performance and Security Monitor",
+  "version": "0.3.0",
+  "description": "Context-aware AI performance and security monitoring. Captures your prompts and AI responses on sites you approve, to score quality and flag security risks. Requires your explicit consent before monitoring starts on any site.",
+  "permissions": ["storage", "tabs", "scripting", "alarms", "notifications"],
+  "optional_host_permissions": [
+    "https://chatgpt.com/*",
+    "https://chat.openai.com/*",
+    "https://gemini.google.com/*",
+    "https://claude.ai/*",
+    "https://copilot.microsoft.com/*",
+    "https://www.perplexity.ai/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["icons/mascot-head.png"],
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*",
+        "https://gemini.google.com/*",
+        "https://claude.ai/*",
+        "https://copilot.microsoft.com/*",
+        "https://www.perplexity.ai/*"
+      ]
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon-16-inactive.png",
+      "48": "icons/icon-48-inactive.png",
+      "128": "icons/icon-128-inactive.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "castmir@recast.team",
+      "strict_min_version": "115.0"
+    }
+  }
+}

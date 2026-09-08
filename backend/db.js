@@ -1,5 +1,5 @@
 /**
- * CASTMIR backend — SQLite storage (Node's built-in node:sqlite, no native build step)
+ * CASTmir backend — SQLite storage (Node's built-in node:sqlite, no native build step)
  */
 import { DatabaseSync } from 'node:sqlite'
 import { fileURLToPath } from 'node:url'

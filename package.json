@@ -1,7 +1,7 @@
 {
   "name": "castmir-ai-performance-intelligence",
   "version": "1.0.0",
-  "description": "CASTMIR — AI Performance Intelligence System. RECAST Team, FSU Innovation Hub.",
+  "description": "CASTmir — AI Performance Intelligence System. RECAST Team, FSU Innovation Hub.",
   "type": "module",
   "scripts": {
     "dev": "vite",

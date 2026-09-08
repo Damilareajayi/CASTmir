@@ -1,5 +1,5 @@
 /**
- * CASTMIR backend — shared constants (mirrors src/constants.js on the frontend)
+ * CASTmir backend — shared constants (mirrors src/constants.js on the frontend)
  */
 
 export const MODELS = [
