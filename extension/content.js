@@ -486,16 +486,16 @@ function ensureCoachIcon() {
          exactly what overflow:hidden cuts off. Badge is now a sibling of
          .icon-wrap (inside .icon-outer, which has no overflow rule) instead
          of a child of it. */
-      .icon-outer { position: relative; height: 34px; }
+      .icon-outer { position: relative; height: 42px; }
       .icon-wrap {
-        height: 34px; width: 34px; border-radius: 17px;
+        height: 42px; width: 42px; border-radius: 21px;
         background: #fff; cursor: pointer; box-sizing: border-box;
         border: 2px solid #782F40; box-shadow: 0 2px 8px rgba(0,0,0,0.3);
         display: flex; align-items: center; overflow: hidden;
         transition: width 0.16s ease;
       }
-      .icon-outer:hover .icon-wrap { width: 176px; }
-      .icon-img { width: 26px; height: 26px; min-width: 26px; margin: 0 4px; object-fit: contain; border-radius: 50%; pointer-events: none; }
+      .icon-outer:hover .icon-wrap { width: 184px; }
+      .icon-img { width: 34px; height: 34px; min-width: 34px; margin: 0 4px; object-fit: contain; border-radius: 50%; pointer-events: none; }
       .label {
         font-size: 11px; font-weight: 700; color: #782F40; white-space: nowrap;
         opacity: 0; transition: opacity 0.12s ease; pointer-events: none;
@@ -576,7 +576,7 @@ function ensureCoachCard() {
 function positionCoachIcon() {
   if (!coachIconHost || !coachActiveInput) return
   const rect = coachActiveInput.getBoundingClientRect()
-  const size = 34
+  const size = 42 // keep in sync with .icon-wrap's height/width above
   const margin = 8
   // Top-right corner of the input, not bottom-right — the bottom-right
   // corner is exactly where a site's own send button conventionally sits
