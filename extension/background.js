@@ -143,7 +143,14 @@ if (chrome?.storage?.session?.setAccessLevel) {
 // weak-prompt nudge (amber, with the same missing-dimension count shown in
 // the inline coach widget) over nothing at all (no badge). Cleared whenever
 // the tab navigates so a stale signal from a previous page never lingers.
-const tabStatus = new Map() // tabId -> { alert: boolean, missing: number }
+//
+// baseTitle is the hover tooltip to fall back to once there's no badge to
+// explain — it's stored here (set by updateIconForTab) rather than
+// recomputed by applyBadgeForTab, since applyBadgeForTab is also called
+// directly from message handlers (a quality-status ping, a new alert) that
+// have no reason to re-derive the site/consent state just to know what
+// tooltip to restore.
+const tabStatus = new Map() // tabId -> { alert: boolean, missing: number, baseTitle: string }
 
 function badgeForStatus(status) {
   if (status?.alert) return { text: '!', color: '#C0392B' }
@@ -151,10 +158,26 @@ function badgeForStatus(status) {
   return { text: '', color: '#1E6B3C' }
 }
 
+// The badge is just a bare number or "!" — meaningless on its own, and
+// there's nowhere else in the UI a user would think to look for what it
+// means. This is that explanation, surfaced as the toolbar icon's own
+// hover tooltip so it's discoverable right where the badge is.
+function titleForStatus(status) {
+  if (status?.alert) return 'CASTmir — security alert on this page. Click the icon for details.'
+  if (status?.missing > 0) {
+    return `CASTmir — this prompt is missing ${status.missing} of 5 quality signals ` +
+      `(a role, a format/constraint, enough context, an example, enough length). ` +
+      `Click the CASTmir icon next to the text box for a rewrite.`
+  }
+  return status?.baseTitle || 'CASTmir — monitoring this tab. Click for your dashboard.'
+}
+
 async function applyBadgeForTab(tabId) {
-  const { text, color } = badgeForStatus(tabStatus.get(tabId))
+  const status = tabStatus.get(tabId)
+  const { text, color } = badgeForStatus(status)
   await browser.action.setBadgeText({ tabId, text })
   await browser.action.setBadgeBackgroundColor({ tabId, color })
+  await browser.action.setTitle({ tabId, title: titleForStatus(status) })
 }
 
 async function updateIconForTab(tabId, url) {
@@ -170,14 +193,12 @@ async function updateIconForTab(tabId, url) {
   const fullyActive = authorized && castmir_consented
 
   await browser.action.setIcon({ tabId, path: iconSet(fullyActive ? 'active' : 'inactive') })
-  await applyBadgeForTab(tabId)
+  const baseTitle = fullyActive
+    ? 'CASTmir — monitoring this tab. Click for your dashboard.'
+    : `CASTmir — setup needed on ${site.origin}. Click to continue.`
+  tabStatus.set(tabId, { ...(tabStatus.get(tabId) || {}), baseTitle })
+  await applyBadgeForTab(tabId) // sets icon title too — reflects any live badge over baseTitle
   await browser.action.setPopup({ tabId, popup: 'popup.html' }) // always show popup, see note above
-  await browser.action.setTitle({
-    tabId,
-    title: fullyActive
-      ? 'CASTmir — monitoring this tab. Click for your dashboard.'
-      : `CASTmir — setup needed on ${site.origin}. Click to continue.`,
-  })
 }
 
 function iconSet(state) {
