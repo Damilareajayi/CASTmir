@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends
 
 from data.db import backup_to_s3, get_db
 from deps import require_admin
+from jsonutil import records as _records
 
 router = APIRouter()
 
@@ -12,7 +13,7 @@ def get_active_alerts(con=Depends(get_db)):
     rows = con.execute(
         "SELECT event_id, user_hash, threat_type, severity, confidence, detected_at "
         "FROM security_events WHERE status = 'active' ORDER BY detected_at DESC",
-    ).fetchdf().to_dict("records")
+    ).fetchdf().pipe(_records)
     return rows
 
 

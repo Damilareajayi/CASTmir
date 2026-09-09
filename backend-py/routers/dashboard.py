@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 from agents import reporter
 from data.db import get_db
 from deps import require_admin
+from jsonutil import records as _records
 
 router = APIRouter()
 
@@ -31,7 +32,7 @@ def get_security_events(con=Depends(get_db)):
     rows = con.execute(
         "SELECT event_id, threat_type, severity, confidence, ocsf_payload, status, detected_at "
         "FROM security_events ORDER BY detected_at DESC LIMIT 100",
-    ).fetchdf().to_dict("records")
+    ).fetchdf().pipe(_records)
     return rows
 
 
@@ -40,5 +41,5 @@ def get_drift_events(con=Depends(get_db)):
     rows = con.execute(
         "SELECT turn_id, user_hash, tool, drift_type, quality_score, timestamp_prompt "
         "FROM sessions WHERE drift_type IS NOT NULL ORDER BY timestamp_prompt DESC LIMIT 100",
-    ).fetchdf().to_dict("records")
+    ).fetchdf().pipe(_records)
     return rows

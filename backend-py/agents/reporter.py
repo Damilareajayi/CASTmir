@@ -6,20 +6,16 @@ nothing here should ever let one user's query return another user's rows.
 admin_dashboard() is aggregate-only and never keys off a specific user_hash
 in its output.
 
-Every query result goes through .fetchdf() rather than raw .fetchall(), and
-pandas converts a SQL NULL in a numeric column to NaN — which Starlette's
-JSONResponse (allow_nan=False) refuses to serialize, crashing the WHOLE
-endpoint with a 500, not just the one field. This bit us for real: an
-avg() over an all-NULL group (interventions.quality_before/after, which
-nothing writes yet) stayed harmless only because the interventions table
-was empty; the moment a real row existed, admin_dashboard() 500'd
-entirely. .replace({np.nan: None}) after every .fetchdf() is the fix,
-applied everywhere rather than just at the query that happened to trigger
-it, since the same failure mode is latent in any avg()/similar aggregate
-here whenever a group's inputs are all NULL.
+Every query result goes through .fetchdf() rather than raw .fetchall(), then
+through jsonutil.records() rather than a plain .to_dict("records") — that
+helper is what fixes both a NaN-vs-NULL JSON-serialization crash and a
+timestamp-timezone display bug that otherwise live at this exact boundary.
+See jsonutil.py's own docstring for why both need fixing here rather than
+per-call-site.
 """
 import duckdb
-import numpy as np
+
+from jsonutil import records as _records
 
 
 def _user_timezone(con: duckdb.DuckDBPyConnection, user_hash: str) -> str:
@@ -66,7 +62,7 @@ def user_dashboard(con: duckdb.DuckDBPyConnection, user_hash: str, days: int = 3
         WHERE user_hash = ? AND timestamp_prompt >= now() - INTERVAL (?) DAY
         GROUP BY 1 ORDER BY 1
         """, [tz, user_hash, days],
-    ).fetchdf().replace({np.nan: None}).to_dict("records")
+    ).fetchdf().pipe(_records)
 
     pmi_trend = con.execute(
         f"""
@@ -75,7 +71,7 @@ def user_dashboard(con: duckdb.DuckDBPyConnection, user_hash: str, days: int = 3
         WHERE user_hash = ? AND timestamp_prompt >= now() - INTERVAL (?) DAY
         GROUP BY 1 ORDER BY 1
         """, [tz, user_hash, days],
-    ).fetchdf().replace({np.nan: None}).to_dict("records")
+    ).fetchdf().pipe(_records)
 
     # avg_pmi alongside avg_quality — "what have I done on each tool, and
     # how mature are my prompts there" in one row per tool, instead of only
@@ -87,7 +83,7 @@ def user_dashboard(con: duckdb.DuckDBPyConnection, user_hash: str, days: int = 3
         FROM sessions WHERE user_hash = ? AND timestamp_prompt >= now() - INTERVAL (?) DAY
         GROUP BY tool ORDER BY sessions DESC
         """, [user_hash, days],
-    ).fetchdf().replace({np.nan: None}).to_dict("records")
+    ).fetchdf().pipe(_records)
 
     # Real per-session rollups, grouped by the session_id the extension already
     # generates per tab (content.js's ensureSession()). Every turn in a
@@ -116,7 +112,7 @@ def user_dashboard(con: duckdb.DuckDBPyConnection, user_hash: str, days: int = 3
         ORDER BY session_start DESC
         LIMIT 30
         """, [user_hash, days],
-    ).fetchdf().replace({np.nan: None}).to_dict("records")
+    ).fetchdf().pipe(_records)
 
     # No ocsf_payload here — this is the private, single-person dashboard,
     # and OCSF (the SIEM-ingestible technical format) belongs on the admin
@@ -127,14 +123,14 @@ def user_dashboard(con: duckdb.DuckDBPyConnection, user_hash: str, days: int = 3
         SELECT event_id, threat_type, severity, status, detected_at
         FROM security_events WHERE user_hash = ? ORDER BY detected_at DESC LIMIT 25
         """, [user_hash],
-    ).fetchdf().replace({np.nan: None}).to_dict("records")
+    ).fetchdf().pipe(_records)
 
     recent_interventions = con.execute(
         """
         SELECT intervention_id, type, pmi_before, pmi_after, recommendation, delivered_at
         FROM interventions WHERE user_hash = ? ORDER BY delivered_at DESC LIMIT 10
         """, [user_hash],
-    ).fetchdf().replace({np.nan: None}).to_dict("records")
+    ).fetchdf().pipe(_records)
 
     return {
         "timezone": tz,
@@ -159,7 +155,7 @@ def admin_dashboard(con: duckdb.DuckDBPyConnection, days: int = 30) -> dict:
         FROM sessions WHERE timestamp_prompt >= now() - INTERVAL (?) DAY
         GROUP BY 1 ORDER BY 1
         """, [days],
-    ).fetchdf().replace({np.nan: None}).to_dict("records")
+    ).fetchdf().pipe(_records)
 
     drift_events = con.execute(
         """
@@ -167,7 +163,7 @@ def admin_dashboard(con: duckdb.DuckDBPyConnection, days: int = 30) -> dict:
         WHERE drift_type IS NOT NULL AND timestamp_prompt >= now() - INTERVAL (?) DAY
         GROUP BY drift_type
         """, [days],
-    ).fetchdf().replace({np.nan: None}).to_dict("records")
+    ).fetchdf().pipe(_records)
 
     # ocsf_payload IS included here on purpose — this is the admin-only
     # Security tab's data, where the raw OCSF finding is meant to be
@@ -178,7 +174,7 @@ def admin_dashboard(con: duckdb.DuckDBPyConnection, days: int = 30) -> dict:
         SELECT event_id, threat_type, severity, confidence, ocsf_payload, status, detected_at
         FROM security_events ORDER BY detected_at DESC LIMIT 50
         """,
-    ).fetchdf().replace({np.nan: None}).to_dict("records")
+    ).fetchdf().pipe(_records)
 
     # A unified, chronological log across both signal types CASTmir raises
     # — security findings and performance drift — so "what happened, day by
@@ -197,7 +193,7 @@ def admin_dashboard(con: duckdb.DuckDBPyConnection, days: int = 30) -> dict:
         ORDER BY ts DESC
         LIMIT 300
         """, [days, days],
-    ).fetchdf().replace({np.nan: None}).to_dict("records")
+    ).fetchdf().pipe(_records)
 
     pmi_distribution = con.execute(
         """
@@ -205,7 +201,7 @@ def admin_dashboard(con: duckdb.DuckDBPyConnection, days: int = 30) -> dict:
         FROM sessions WHERE timestamp_prompt >= now() - INTERVAL (?) DAY
         GROUP BY pmi_score ORDER BY pmi_score
         """, [days],
-    ).fetchdf().replace({np.nan: None}).to_dict("records")
+    ).fetchdf().pipe(_records)
 
     tool_comparison = con.execute(
         """
@@ -214,7 +210,7 @@ def admin_dashboard(con: duckdb.DuckDBPyConnection, days: int = 30) -> dict:
         FROM sessions WHERE timestamp_prompt >= now() - INTERVAL (?) DAY
         GROUP BY tool ORDER BY sessions DESC
         """, [days],
-    ).fetchdf().replace({np.nan: None}).to_dict("records")
+    ).fetchdf().pipe(_records)
 
     intervention_outcomes = con.execute(
         """
@@ -222,7 +218,7 @@ def admin_dashboard(con: duckdb.DuckDBPyConnection, days: int = 30) -> dict:
                avg(quality_after - quality_before) AS avg_quality_gain
         FROM interventions GROUP BY type
         """,
-    ).fetchdf().replace({np.nan: None}).to_dict("records")
+    ).fetchdf().pipe(_records)
 
     # Per-person visibility for admin — grouped by the RECAST alias chosen at
     # consent time, NOT user_hash directly, so the same real person using
@@ -258,7 +254,7 @@ def admin_dashboard(con: duckdb.DuckDBPyConnection, days: int = 30) -> dict:
         ORDER BY sessions DESC
         LIMIT 100
         """, [days],
-    ).fetchdf().replace({np.nan: None}).to_dict("records")
+    ).fetchdf().pipe(_records)
 
     # "How often and how well are people improving through COACH" — splits
     # each identity's own session history in the period into an early half
@@ -285,7 +281,7 @@ def admin_dashboard(con: duckdb.DuckDBPyConnection, days: int = 30) -> dict:
         GROUP BY identity, total_n
         HAVING total_n >= 4
         """, [days],
-    ).fetchdf().replace({np.nan: None}).to_dict("records")
+    ).fetchdf().pipe(_records)
 
     intervention_counts = dict(con.execute(
         """
@@ -344,7 +340,7 @@ def admin_user_dashboard(con: duckdb.DuckDBPyConnection, identity: str, days: in
         WHERE COALESCE(u.alias, 'anon-' || substr(s.user_hash, 1, 8)) = ? AND s.timestamp_prompt >= now() - INTERVAL (?) DAY
         GROUP BY 1 ORDER BY 1
         """, [tz, identity, days],
-    ).fetchdf().replace({np.nan: None}).to_dict("records")
+    ).fetchdf().pipe(_records)
 
     pmi_trend = con.execute(
         f"""
@@ -353,7 +349,7 @@ def admin_user_dashboard(con: duckdb.DuckDBPyConnection, identity: str, days: in
         WHERE COALESCE(u.alias, 'anon-' || substr(s.user_hash, 1, 8)) = ? AND s.timestamp_prompt >= now() - INTERVAL (?) DAY
         GROUP BY 1 ORDER BY 1
         """, [tz, identity, days],
-    ).fetchdf().replace({np.nan: None}).to_dict("records")
+    ).fetchdf().pipe(_records)
 
     tool_breakdown = con.execute(
         """
@@ -363,7 +359,7 @@ def admin_user_dashboard(con: duckdb.DuckDBPyConnection, identity: str, days: in
         WHERE COALESCE(u.alias, 'anon-' || substr(s.user_hash, 1, 8)) = ? AND s.timestamp_prompt >= now() - INTERVAL (?) DAY
         GROUP BY s.tool ORDER BY sessions DESC
         """, [identity, days],
-    ).fetchdf().replace({np.nan: None}).to_dict("records")
+    ).fetchdf().pipe(_records)
 
     sessions = con.execute(
         """
@@ -382,7 +378,7 @@ def admin_user_dashboard(con: duckdb.DuckDBPyConnection, identity: str, days: in
         ORDER BY session_start DESC
         LIMIT 30
         """, [identity, days],
-    ).fetchdf().replace({np.nan: None}).to_dict("records")
+    ).fetchdf().pipe(_records)
 
     # ocsf_payload included here too — an admin drilling into one person is
     # still on the admin side of the content-privacy boundary, same as
@@ -394,7 +390,7 @@ def admin_user_dashboard(con: duckdb.DuckDBPyConnection, identity: str, days: in
         WHERE COALESCE(u.alias, 'anon-' || substr(e.user_hash, 1, 8)) = ?
         ORDER BY e.detected_at DESC LIMIT 25
         """, [identity],
-    ).fetchdf().replace({np.nan: None}).to_dict("records")
+    ).fetchdf().pipe(_records)
 
     recent_interventions = con.execute(
         """
@@ -403,7 +399,7 @@ def admin_user_dashboard(con: duckdb.DuckDBPyConnection, identity: str, days: in
         WHERE COALESCE(u.alias, 'anon-' || substr(iv.user_hash, 1, 8)) = ?
         ORDER BY iv.delivered_at DESC LIMIT 10
         """, [identity],
-    ).fetchdf().replace({np.nan: None}).to_dict("records")
+    ).fetchdf().pipe(_records)
 
     # Can't count from `users` directly any more (WHERE identity_match) —
     # an identity with no successful registration has no matching users row

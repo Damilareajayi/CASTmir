@@ -17,6 +17,7 @@ from pydantic import BaseModel
 
 from data.db import get_db
 from deps import require_admin
+from jsonutil import records as _records
 
 router = APIRouter()
 
@@ -99,7 +100,7 @@ def get_selector_health(hours: int = 24, con=Depends(get_db)):
         GROUP BY hostname, tool
         ORDER BY hostname
         """, [since],
-    ).fetchdf().to_dict("records")
+    ).fetchdf().pipe(_records)
     for r in rows:
         r["found_rate"] = round(r["found"] / r["checks"], 3) if r["checks"] else None
     return rows
